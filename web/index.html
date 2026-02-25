@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PRM Login</title>
+  <link rel="stylesheet" href="/style.css" />
+
+  <!-- Login-page-only theme (won't affect other pages) -->
+  <style>
+    :root{
+      --bg0:#070A12;
+      --bg1:#0B1022;
+      --card:#0F1630cc;
+      --border:#1D2A55;
+      --text:#EAF0FF;
+      --muted:#AAB7E6;
+      --muted2:#7F8CC3;
+      --accent:#7C5CFF;
+      --accent2:#00D4FF;
+      --danger:#FF4D6D;
+      --ok:#2DE2A6;
+      --radius:18px;
+      --radius2:12px;
+      --shadow: 0 18px 55px rgba(0,0,0,.55);
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family: var(--font);
+      color: var(--text);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 22px;
+      background:
+        radial-gradient(1200px 700px at 15% 15%, rgba(124,92,255,.25), transparent 60%),
+        radial-gradient(900px 600px at 85% 25%, rgba(0,212,255,.18), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+    }
+
+    .card{
+      width: min(520px, 100%);
+      background: linear-gradient(180deg, var(--card), rgba(15,22,48,.55));
+      border:1px solid rgba(29,42,85,.75);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 18px 16px;
+      position: relative;
+      overflow:hidden;
+    }
+    .card::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background:
+        radial-gradient(600px 300px at 20% 0%, rgba(124,92,255,.18), transparent 55%),
+        radial-gradient(600px 300px at 80% 20%, rgba(0,212,255,.12), transparent 50%);
+      pointer-events:none;
+      filter: blur(1px);
+    }
+
+    .content{ position:relative; display:flex; flex-direction:column; gap: 12px; }
+
+    .brand{
+      display:flex; align-items:center; gap:12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(29,42,85,.55);
+    }
+    .logo{
+      width:42px; height:42px; border-radius: 14px;
+      background:
+        radial-gradient(18px 18px at 30% 30%, rgba(255,255,255,.35), transparent 60%),
+        linear-gradient(135deg, var(--accent), var(--accent2));
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow: 0 10px 30px rgba(124,92,255,.25);
+      flex: 0 0 auto;
+    }
+    .brand h3{
+      margin:0;
+      font-size: 18px;
+      letter-spacing: .2px;
+      line-height:1.1;
+    }
+    .motto{
+      margin-top: 4px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .quoteCard{
+      padding: 12px 12px 10px;
+      border-radius: var(--radius2);
+      background: rgba(7,10,18,.30);
+      border:1px solid rgba(29,42,85,.65);
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+    }
+    .quoteTop{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .chip{
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 10px;
+      border:1px solid rgba(29,42,85,.85);
+      border-radius: 999px;
+      background: rgba(7,10,18,.25);
+      user-select:none;
+    }
+    .date{ font-size: 12px; color: var(--muted2); }
+    .quote{
+      font-size: 15.5px;
+      line-height: 1.35;
+    }
+    .quote small{
+      display:block;
+      margin-top: 6px;
+      color: var(--muted2);
+      font-size: 12px;
+    }
+
+    .field{ display:flex; flex-direction:column; gap:6px; }
+    label{ font-size: 12px; color: var(--muted); }
+
+    input{
+      width:100%;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(29,42,85,.85);
+      background: rgba(7,10,18,.28);
+      color: var(--text);
+      outline:none;
+    }
+    input:focus{
+      border-color: rgba(124,92,255,.85);
+      box-shadow: 0 0 0 4px rgba(124,92,255,.18);
+    }
+
+    .pwWrap{ position:relative; }
+    .togglePw{
+      position:absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(29,42,85,.85);
+      background: rgba(7,10,18,.25);
+      cursor:pointer;
+      user-select:none;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top: 6px;
+    }
+    button{
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(14,20,44,.45);
+      color: var(--text);
+      cursor:pointer;
+      font-weight: 650;
+    }
+    #btn{
+      flex: 1 1 160px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #081022;
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    button:hover{ filter: brightness(1.05); }
+    button:disabled{ opacity:.65; cursor:not-allowed; filter:saturate(.6); }
+
+    .hint{ color: var(--muted2); font-size: 12px; line-height: 1.45; }
+    .err{ color: #FFD0D9; background: rgba(255,77,109,.10); border:1px solid rgba(255,77,109,.35); padding: 10px 12px; border-radius: 12px; }
+    .ok{ color: #BFFBE8; background: rgba(45,226,166,.10); border:1px solid rgba(45,226,166,.30); padding: 10px 12px; border-radius: 12px; }
+
+    /* If your existing style.css sets .err/.ok/.hint differently, this makes sure empty boxes don't take space */
+    #msg:empty, #err:empty, #ok:empty { display:none; }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="content">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h3>PRM Ops Portal</h3>
+          <div class="motto">Fast hands. Calm mind. Clean data.</div>
+        </div>
+      </div>
+
+      <div class="quoteCard" aria-label="Quote of the day">
+        <div class="quoteTop">
+          <div class="chip">Quote of the day</div>
+          <div class="date" id="todayToronto">—</div>
+        </div>
+        <div class="quote" id="quoteText">—</div>
+      </div>
+
+      <div class="field">
+        <label for="u">Username</label>
+        <input id="u" placeholder="Enter your username" autocomplete="username" />
+      </div>
+
+      <div class="field">
+        <label for="p">PIN</label>
+        <div class="pwWrap">
+          <input id="p" placeholder="Enter your PIN" type="password" inputmode="numeric" autocomplete="current-password" />
+          <div class="togglePw" id="togglePw" role="button" tabindex="0" aria-label="Show PIN">Show</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btn" onclick="login()">Login</button>
+        <button onclick="go('dispatch')">Dispatch</button>
+        <button onclick="go('lead')">Lead</button>
+      </div>
+
+      <div id="msg" class="hint"></div>
+      <div id="err" class="err"></div>
+      <div id="ok" class="ok"></div>
+
+      <div class="hint">Token stored in <b>localStorage</b>. Quote rotates daily (Toronto time).</div>
+    </div>
+  </div>
+
+  <script src="/config.js"></script>
+  <script>
+    const API_BASE = (window.PRM_CONFIG && window.PRM_CONFIG.API_BASE) || "";
+    const LS_TOKEN = "PRM_TOKEN";
+    const LS_USER  = "PRM_USER";
+
+    function setErr(s){ document.getElementById('err').textContent = s || ''; }
+    function setOk(s){ document.getElementById('ok').textContent = s || ''; }
+    function setMsg(s){ document.getElementById('msg').textContent = s || ''; }
+
+    function getToken(){ return localStorage.getItem(LS_TOKEN) || ""; }
+
+    function applyAccess(access){
+      // Management view retired; keep for backwards compatibility hooks.
+      return access;
+    }
+
+    function go(app){
+      const t = getToken();
+      if (!t) { setErr("Login first."); return; }
+      let page = "/lead.html";
+      if (app === "dispatch") page = "/dispatch.html";
+      window.location.href = page;
+    }
+
+    // --- Quote of the day (Toronto, deterministic) ---
+    const QUOTES = [
+  { t: "If it’s not in DataBase, it’s just airport folklore.", a: "Jaipal" },
+  { t: "I built this so we can suffer… efficiently.", a: "Jaipal" },
+
+  { t: "Scan the entrie. If you miss one passenger, they respawn a phone call.", a: "Harman" },
+  { t: "If you didn’t scan the passengers, my ghost will  hunt you in nights", a: "Harman" },
+
+  { t: "Team — calms ops. No hero moves. Just clean moves.", a: "Francesco (Director)" },
+  { t: "Fastt is good. Accurate is elite. Be elite.", a: "Francesco (Director))" },
+
+  { t: "Breaks are not optional . Burnout isn’t a KPI.", a: "Brenda (Ops Manager)" },
+  { t: "If you’re stressed, pause and ask: ‘time, gate, zone?’", a: "Brenda (Ops Manager)" },
+
+  { t: "Protect the operation like it’s your phone battery on 1%.", a: "Steve (Ops Manager)" },
+  { t: "We don’t do chaos. We do updates. Repeatedly.", a: "Steve (Ops Manager)" },
+
+  { t: "If the gate changes again, I’m transferring the call to destiny.", a: "Shawn (Duty Manager)" },
+  { t: "Radio discipline = peace. Radio freestyle = pain.", a: "Shawn (Duty Manager)" },
+
+  { t: "Assignments are vibes… backed by logic.", a: "Stuti (Duty Manager)" },
+  { t: "If you’re early, you’re legendary. If you’re on time, you’re still good.", a: "Stuti (Duty Manager)" },
+
+  { t: "Every ‘quick call’ is a lie. But we survive anyway.", a: "Mohameed (Duty Manager)" },
+  { t: "If you need coverage, ask early — don’t spawn a crisis at the gate.", a: "Mohameed (Duty Manager)" },
+
+  { t: "Today’s aesthetic: organized urgency.", a: "Chathura (Duty Manager)" },
+  { t: "We’re not panicking. We’re recalculating.", a: "Chathura (Duty Manager)" },
+
+  { t: "Whoever said ‘ASAP’… I just want to talk.", a: "Unknown Legend" },
+
+  // Dispatchers
+  { t: "Phone rings again and I’m evolving into airplane mode.", a: "Deneka (Dispatcher)" },
+  { t: "Copy that. Re-copy that. Still copy that.", a: "Deneka (Dispatcher)" },
+
+  { t: "Gate change? Very original. Try again.", a: "Sumandeep (Dispatcher)" },
+  { t: "If the flight number has no space, it’s giving ‘duplicate key energy’.", a: "Sumandeep (Dispatcher)" },
+
+  { t: "If it’s not written down, it didn’t happen. I don’t make the rules.", a: "Wendy (Dispatcher)" },
+  { t: "Confirm it once, confirm it twice, then confirm it again for character development.", a: "Wendy (Dispatcher)" },
+
+  { t: "We move fast  so passengers don’t have to.", a: "Amtul (Dispatcher)" },
+  { t: "Kind voice.Sharp brain. Let’s run it.", a: " (Dispatcher)" },
+
+  { t: "Lead life: assign, reassign, reassign again — cinematic.", a: "Jelisia (Dispatcher)" },
+  { t: "Pre-alerts are spoilers. Dispatch calls are plot twists.", a: "Jelisia (Dispatcher)" },
+
+  { t: "Wheelchairs don’t teleport. People don’t either. Plan like you mean it.", a: "Sagar (Dispatcher)" },
+  { t: "If the radio is quiet… something is loading.", a: "Sagar (Dispatcher)" }
+];
+
+
+    function torontoYMD() {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Toronto",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(new Date());
+      const y = parts.find(p => p.type === "year").value;
+      const m = parts.find(p => p.type === "month").value;
+      const d = parts.find(p => p.type === "day").value;
+      return `${y}-${m}-${d}`;
+    }
+    function hashStringToInt(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+      return h;
+    }
+    (function setQuoteOfDay(){
+  const ymd = torontoYMD();
+  document.getElementById("todayToronto").textContent = `${ymd} (Toronto)`;
+
+  const idx = hashStringToInt(ymd) % QUOTES.length;
+
+  const el = document.getElementById("quoteText");
+  el.textContent = `“${QUOTES[idx].t}”`;
+
+  const s = document.createElement("small");
+  s.textContent = `— ${QUOTES[idx].a}`;
+  el.appendChild(s);
+})();
+
+
+    // Show/hide PIN
+    const pinEl = document.getElementById("p");
+    const toggle = document.getElementById("togglePw");
+    function togglePin(){
+      const isHidden = pinEl.type === "password";
+      pinEl.type = isHidden ? "text" : "password";
+      toggle.textContent = isHidden ? "Hide" : "Show";
+      toggle.setAttribute("aria-label", isHidden ? "Hide PIN" : "Show PIN");
+    }
+    toggle.addEventListener("click", togglePin);
+    toggle.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") togglePin();
+    });
+
+    // Enter key triggers login
+    document.getElementById("u").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+    document.getElementById("p").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+
+    async function login(){
+      setErr(''); setOk(''); setMsg('Logging in…');
+      const u = (document.getElementById('u').value || '').trim();
+      const p = (document.getElementById('p').value || '').trim();
+      if (!u || !p) { setMsg(''); setErr('Enter username and pin.'); return; }
+      document.getElementById('btn').disabled = true;
+
+      try {
+        const res = await fetch(API_BASE + "/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: u, pin: p })
+        });
+        const data = await res.json();
+        document.getElementById('btn').disabled = false;
+        setMsg('');
+
+        if (!data || !data.ok) { setErr((data && data.error) || "Login failed"); return; }
+
+        localStorage.setItem(LS_TOKEN, data.token);
+        localStorage.setItem(LS_USER, JSON.stringify(data.user || {}));
+        applyAccess(data.access);
+
+        if (data.access && data.access.dispatch && !data.access.lead) {
+          window.location.href = "/dispatch.html";
+          return;
+        }
+        if (data.access && data.access.lead && !data.access.dispatch) {
+          window.location.href = "/lead.html";
+          return;
+        }
+        setOk("Logged in. Choose Dispatch, Lead, or Management.");
+      } catch (e) {
+        document.getElementById('btn').disabled = false;
+        setMsg('');
+        setErr(e && e.message ? e.message : String(e));
+      }
+    }
+
+    // If token exists, validate it (no auto-redirect)
+    (async function boot(){
+      const t = getToken();
+      if (!t) return;
+      try {
+        const res = await fetch(API_BASE + "/auth/validate", {
+          headers: { "authorization": "Bearer " + t }
+        });
+        const data = await res.json();
+        if (data && data.ok) {
+          setOk("Session active. Choose Dispatch, Lead, or Management.");
+          applyAccess(data.access);
+        }
+        else {
+          localStorage.removeItem(LS_TOKEN);
+          localStorage.removeItem(LS_USER);
+        }
+      } catch {}
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,672 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PRM Lead</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <button onclick="manualRefresh()">Refresh</button>
+    <button onclick="logout()">Logout</button>
+
+    <div class="filters" id="zoneControls" style="flex: 1;">
+      <button class="pill active" id="zTB" onclick="setZone('TB')">TB</button>
+      <button class="pill" id="zGates" onclick="setZone('Gates')">Gates</button>
+      <button class="pill" id="zPierA" onclick="setZone('Pier A')">Pier A</button>
+      <button class="pill" id="zT1" onclick="setZone('T1')">T1</button>
+      <select id="zoneSel" onchange="onZoneDropdownChange()"></select>
+    </div>
+
+    <div class="filters">
+      <button class="pill active" id="tALL" onclick="setType('ALL')">All</button>
+      <button class="pill" id="tARR" onclick="setType('ARR')">ARR</button>
+      <button class="pill" id="tDEP" onclick="setType('DEP')">DEP</button>
+    </div>
+
+    <div class="filters">
+      <button class="pill active" id="cALL" onclick="setChangeFilter('ALL')">All changes</button>
+      <button class="pill" id="cGate" onclick="setChangeFilter('GATE')">Gate change</button>
+      <button class="pill" id="cTime" onclick="setChangeFilter('TIME')">Time change</button>
+    </div>
+
+    <div class="filters hidden" id="opsDayControl">
+      <span>Ops Day</span>
+      <select id="opsDaySelect">
+        <option value="current">Current</option>
+        <option value="next">Next</option>
+      </select>
+    </div>
+
+    <div class="searchWrap">
+      <input id="q" placeholder="Search flight (ex: AC123, TS 101)..." oninput="onSearchInput()" />
+      <div class="hint">Search matches Flight (spaces ignored). Auto-refresh pauses while typing.</div>
+    </div>
+  </div>
+
+  <div class="hint">Edits: Assignment, Pax. Ack clears alerts instantly (does NOT remove flight).</div>
+  <div id="err" class="err"></div>
+  <div id="loading" class="loading" style="display:none;">Loading…</div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="tableWrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th>Watch</th><th>Flight</th><th>Type</th><th>Time</th><th>Gate</th><th>Zone</th>
+          <th>WCHR</th><th>WCHC</th><th>Alert</th>
+          <th>Assignment</th><th>Pax</th><th>Ack</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script src="/config.js"></script>
+  <script>
+    const API_BASE = (window.PRM_CONFIG && window.PRM_CONFIG.API_BASE) || "";
+    const LS_TOKEN = "PRM_TOKEN";
+    const LS_USER  = "PRM_USER";
+    const LS_OPS_DAY = "PRM_OPS_DAY_LEAD";
+
+    function getToken(){ return localStorage.getItem(LS_TOKEN) || ""; }
+    function hardRedirectToLogin(){ window.location.href = "/"; }
+
+    function logout(){
+      localStorage.removeItem(LS_TOKEN);
+      localStorage.removeItem(LS_USER);
+      hardRedirectToLogin();
+    }
+
+    function resetBackoff(){ backoffMs = 0; }
+    function nextBackoff(){
+      backoffMs = backoffMs ? Math.min(backoffMs * 2, BACKOFF_MAX_MS) : BACKOFF_START_MS;
+      return backoffMs;
+    }
+
+    function scheduleNextPoll(delay){
+      if (pollTimer) clearTimeout(pollTimer);
+      pollTimer = setTimeout(pollLoop, delay);
+    }
+
+    async function pollLoop(){
+      const ok = await load(false);
+      if (ok) resetBackoff();
+      scheduleNextPoll(ok ? POLL_MS : nextBackoff());
+    }
+
+    function refreshAfterAction(){
+      resetBackoff();
+      if (pollTimer) clearTimeout(pollTimer);
+      return load(true).finally(() => scheduleNextPoll(POLL_MS));
+    }
+
+    function manualRefresh(){
+      refreshAfterAction();
+    }
+
+    async function validateAuthThenInit(){
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      try {
+        const res = await fetch(API_BASE + "/auth/validate?app=lead", {
+          headers: { "authorization": "Bearer " + token }
+        });
+        const data = await res.json();
+        if (!data || !data.ok) {
+          localStorage.removeItem(LS_TOKEN);
+          localStorage.removeItem(LS_USER);
+          return hardRedirectToLogin();
+        }
+        await init();
+        resetBackoff();
+        scheduleNextPoll(POLL_MS);
+      } catch {
+        localStorage.removeItem(LS_TOKEN);
+        localStorage.removeItem(LS_USER);
+        hardRedirectToLogin();
+      }
+    }
+
+    const POLL_MS = 10_000;
+    const BACKOFF_START_MS = 2_000;
+    const BACKOFF_MAX_MS = 15_000;
+
+    let rows = [];
+    let zonesAll = [];
+    let filterType = "ALL";
+    let changeFilter = "ALL";
+    let selectedZone = "TB";
+    let opsDayMode = "current";
+    let opsDayEnabled = false;
+
+    let typingUntil = 0;
+    const saveTimers = new Map();
+
+    const CACHE_MS = 30000;
+    const cache = new Map();
+
+    const ackSuppress = new Map();
+    const ACK_SUPPRESS_MS = 8000;
+    const pendingEdits = new Map();
+    const PENDING_EDIT_TTL_MS = 15_000;
+
+    let requestSeq = 0;
+
+    let pollTimer = null;
+    let backoffMs = 0;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const zoneParam = urlParams.get("zone");
+    const lockZone = (urlParams.get("lockZone") === "1");
+    if (zoneParam) selectedZone = zoneParam;
+
+    if (lockZone) {
+      const zc = document.getElementById("zoneControls");
+      if (zc) zc.classList.add("hidden");
+    }
+
+    function setErr(msg) { document.getElementById("err").textContent = msg || ""; }
+    function setLoading(on) { document.getElementById("loading").style.display = on ? "block" : "none"; }
+
+    function fmtTimeOnly(dt) {
+      if (!dt) return "";
+      const d = new Date(dt);
+      if (isNaN(d.getTime())) return String(dt);
+      return d.toLocaleTimeString(undefined, { hour:"2-digit", minute:"2-digit", hour12:false });
+    }
+
+    function normalizeFlightQ(s) { return String(s || "").toUpperCase().replace(/\s+/g, ""); }
+
+    function getTorontoParts(date = new Date()) {
+      const fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Toronto",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      const parts = Object.fromEntries(fmt.formatToParts(date).map(p => [p.type, p.value]));
+      return {
+        hour: Number(parts.hour),
+        minute: Number(parts.minute),
+        second: Number(parts.second),
+      };
+    }
+
+    function isOpsDayToggleWindow() {
+      const p = getTorontoParts();
+      return p.hour < 4;
+    }
+
+    function initOpsDayControl() {
+      const control = document.getElementById("opsDayControl");
+      const select = document.getElementById("opsDaySelect");
+      if (!control || !select) return;
+
+      opsDayEnabled = isOpsDayToggleWindow();
+      control.classList.toggle("hidden", !opsDayEnabled);
+
+      if (opsDayEnabled) {
+        const stored = localStorage.getItem(LS_OPS_DAY);
+        opsDayMode = (stored === "next" || stored === "current") ? stored : "current";
+        select.value = opsDayMode;
+        select.addEventListener("change", () => {
+          opsDayMode = select.value === "next" ? "next" : "current";
+          localStorage.setItem(LS_OPS_DAY, opsDayMode);
+          cache.clear();
+          useCacheThenFetch_();
+        });
+      } else {
+        opsDayMode = "current";
+        select.value = "current";
+      }
+    }
+
+    function isTyping() {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      return Date.now() < typingUntil || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    }
+
+    function onSearchInput() { typingUntil = Date.now() + 1200; render(); }
+
+    function setType(t) {
+      filterType = t;
+      document.getElementById("tALL").classList.toggle("active", t === "ALL");
+      document.getElementById("tARR").classList.toggle("active", t === "ARR");
+      document.getElementById("tDEP").classList.toggle("active", t === "DEP");
+      useCacheThenFetch_();
+    }
+
+    function setChangeFilter(v) {
+      changeFilter = v;
+      document.getElementById("cALL").classList.toggle("active", v === "ALL");
+      document.getElementById("cGate").classList.toggle("active", v === "GATE");
+      document.getElementById("cTime").classList.toggle("active", v === "TIME");
+      render();
+    }
+
+    function setZone(z) { selectedZone = z; syncZonePills_(); syncZoneDropdown_(); useCacheThenFetch_(); }
+
+    function onZoneDropdownChange() {
+      const z = document.getElementById("zoneSel").value;
+      if (!z) return;
+      selectedZone = z;
+      syncZonePills_();
+      useCacheThenFetch_();
+    }
+
+    function syncZonePills_() {
+      const map = { "TB":"zTB", "Gates":"zGates", "Pier A":"zPierA", "T1":"zT1" };
+      Object.keys(map).forEach(k => {
+        const el = document.getElementById(map[k]);
+        if (el) el.classList.toggle("active", selectedZone === k);
+      });
+    }
+    function syncZoneDropdown_() {
+      const sel = document.getElementById("zoneSel");
+      if (sel && sel.value !== selectedZone) sel.value = selectedZone;
+    }
+
+    function cacheKey_(){ return `${selectedZone}__${filterType}__${opsDayMode}`; }
+
+    function applyAckSuppression_(arr) {
+      const now = Date.now();
+      return (arr || []).map(r => {
+        const key = String(r.key || "");
+        const exp = ackSuppress.get(key);
+        if (!exp) return r;
+        if (now > exp) { ackSuppress.delete(key); return r; }
+        return { ...r, alert:"", gateChanged:false, timeChanged:false, zoneChanged:false };
+      });
+    }
+
+    function rememberPendingEdit(key, field, val) {
+      if (!key || !field) return;
+      pendingEdits.set(String(key), { field, val, exp: Date.now() + PENDING_EDIT_TTL_MS });
+    }
+
+    function clearPendingEdit(key, field) {
+      if (!key || !field) return;
+      const entry = pendingEdits.get(String(key));
+      if (entry && entry.field === field) pendingEdits.delete(String(key));
+    }
+
+    function applyPendingEdits_(arr) {
+      const now = Date.now();
+      return (arr || []).map(r => {
+        const key = String(r.key || "");
+        const entry = pendingEdits.get(key);
+        if (!entry) return r;
+        if (now > entry.exp) { pendingEdits.delete(key); return r; }
+        return { ...r, [entry.field]: entry.val };
+      });
+    }
+
+    function useCacheThenFetch_() {
+      const key = cacheKey_();
+      const hit = cache.get(key);
+      if (hit && (Date.now() - hit.ts) <= CACHE_MS) {
+        rows = applyPendingEdits_(applyAckSuppression_(hit.rows));
+        render();
+        load(false);
+      } else load(true);
+    }
+
+    async function init() {
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      setErr("");
+      try {
+        const res = await fetch(API_BASE + "/lead/init", {
+          headers: { "authorization": "Bearer " + token }
+        });
+        const data = await res.json();
+        zonesAll = (data && data.zones) ? data.zones : ["TB","Gates","Pier A","T1","Unassigned"];
+        zonesAll = zonesAll.filter(z => z !== "Unassigned");
+
+        const sel = document.getElementById("zoneSel");
+        sel.innerHTML = zonesAll.map(z => `<option value="${escapeAttr(z)}">${escapeHtml(z)}</option>`).join("");
+
+        if (!zonesAll.includes(selectedZone)) selectedZone = zonesAll[0] || "TB";
+        syncZonePills_();
+        syncZoneDropdown_();
+
+        await load(true);
+      } catch (e) {
+        setErr(e && e.message ? e.message : String(e));
+      }
+    }
+
+    async function load(force=false) {
+      if (!force && isTyping()) return true;
+
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      const myReq = ++requestSeq;
+      setErr("");
+      setLoading(true);
+
+      const zone = selectedZone;
+      const type = filterType;
+
+      try {
+        const url = new URL(API_BASE + "/lead/rows");
+        url.searchParams.set("zone", zone);
+        url.searchParams.set("type", type);
+        url.searchParams.set("q", document.getElementById("q").value || "");
+        url.searchParams.set("opsDay", opsDayMode);
+
+        const res = await fetch(url.toString(), {
+          headers: { "authorization": "Bearer " + token }
+        });
+        const data = await res.json();
+        if (myReq !== requestSeq) return true;
+
+        if (!data || !data.ok) {
+          const msg = (data && data.error) || "Fetch failed";
+          if (/unauthorized|expired|missing token/i.test(msg)) return hardRedirectToLogin();
+          setErr(msg);
+          setLoading(false);
+          return false;
+        }
+
+        const incoming = data.rows || [];
+        const cleaned = applyAckSuppression_(incoming);
+        rows = applyPendingEdits_(cleaned);
+        cache.set(cacheKey_(), { ts: Date.now(), rows: incoming });
+        render();
+        setLoading(false);
+        return true;
+
+      } catch (e) {
+        if (myReq !== requestSeq) return true;
+        const msg = (e && e.message) ? e.message : String(e);
+        if (/unauthorized|expired|missing token/i.test(msg)) return hardRedirectToLogin();
+        setErr(msg);
+        setLoading(false);
+        return false;
+      }
+    }
+
+    function render() {
+      const tb = document.querySelector("#tbl tbody");
+      tb.innerHTML = "";
+
+      const q = normalizeFlightQ(document.getElementById("q").value);
+
+      const filtered = rows.filter(r => {
+        const ftOk = (filterType === "ALL") || (String(r.type || "").toUpperCase() === filterType);
+        const qOk  = !q || normalizeFlightQ(r.flight).includes(q);
+        const changeOk = (changeFilter === "ALL")
+          || (changeFilter === "GATE" && r.gateChanged)
+          || (changeFilter === "TIME" && r.timeChanged);
+        return ftOk && qOk && changeOk;
+      });
+
+      renderSummary(filtered);
+
+      if (!filtered.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td class="empty" colspan="12">No flights match the current filters.</td>`;
+        tb.appendChild(tr);
+        return;
+      }
+
+      const ordered = filtered
+        .map((r, idx) => ({
+          r,
+          idx,
+          watch: ["1", "true", "yes"].includes(String(r.watchlist || "").toLowerCase()),
+        }))
+        .sort((a, b) => (Number(b.watch) - Number(a.watch)) || (a.idx - b.idx))
+        .map(item => item.r);
+
+      ordered.forEach(r => {
+        const tr = document.createElement("tr");
+
+        const t = String(r.type || "").toUpperCase();
+        const typeClass = (t === "ARR") ? "type-arr" : (t === "DEP") ? "type-dep" : "";
+        const gateClass = r.gateChanged ? "cell-gatechg" : "";
+        const timeClass = r.timeChanged ? "cell-timechg" : "";
+
+        const watchRaw = String(r.watchlist || "").toLowerCase();
+        const watchChecked = watchRaw === "1" || watchRaw === "true" || watchRaw === "yes";
+
+        tr.innerHTML = `
+          <td class="watchCell"><input class="watch-toggle" type="checkbox" data-key="${escapeAttr(r.key)}" data-field="watchlist" ${watchChecked ? "checked" : ""} /></td>
+          <td><div><b>${escapeHtml(r.flight || "")}</b></div><div class="small">${escapeHtml(r.key || "")}</div></td>
+          <td class="${typeClass}">${escapeHtml(r.type || "")}</td>
+          <td class="${timeClass}">${escapeHtml(fmtTimeOnly(r.timeEst))}</td>
+          <td class="${gateClass}">${escapeHtml(r.gate || "")}</td>
+          <td>${escapeHtml(r.zone || "")}</td>
+          <td class="num">${escapeHtml(r.wchr || "")}</td>
+          <td class="num">${escapeHtml(r.wchc || "")}</td>
+          <td class="alert">${escapeHtml(r.alert || "")}</td>
+          <td><input class="cell-input" data-key="${escapeAttr(r.key)}" data-field="assignment" value="${escapeAttr(r.assignment || "")}" /></td>
+          <td><input class="cell-input num" data-key="${escapeAttr(r.key)}" data-field="pax" value="${escapeAttr(r.pax || "")}" /></td>
+          <td><button class="quiet" onclick="ack('${escapeAttr(r.key)}')">Ack</button></td>
+        `;
+
+        tb.appendChild(tr);
+      });
+
+      tb.querySelectorAll("input, select").forEach(el => {
+        el.addEventListener("input", onFieldInput);
+        el.addEventListener("blur", onFieldBlur);
+        el.addEventListener("change", onFieldChange);
+      });
+    }
+
+    function renderSummary(filtered) {
+      const summary = document.getElementById("summary");
+      if (!summary) return;
+
+      const total = filtered.length;
+      const arr = filtered.filter(r => String(r.type || "").toUpperCase() === "ARR").length;
+      const dep = filtered.filter(r => String(r.type || "").toUpperCase() === "DEP").length;
+      const alerts = filtered.filter(r => String(r.alert || "").trim()).length;
+      const totalWchr = filtered.reduce((acc, r) => {
+        const n = Number(String(r.wchr || "").trim());
+        return acc + (Number.isNaN(n) ? 0 : n);
+      }, 0);
+      const totalWchc = filtered.reduce((acc, r) => {
+        const n = Number(String(r.wchc || "").trim());
+        return acc + (Number.isNaN(n) ? 0 : n);
+      }, 0);
+
+      summary.innerHTML = `
+        <div class="summaryCard">
+          <div class="summaryTitle">Showing</div>
+          <div class="summaryValue">${total}</div>
+          <div class="summaryMeta">${arr} ARR · ${dep} DEP</div>
+        </div>
+        <div class="summaryCard">
+          <div class="summaryTitle">Alerts</div>
+          <div class="summaryValue">${alerts}</div>
+          <div class="summaryMeta">Gate/Time/Zone changes</div>
+        </div>
+        <div class="summaryCard">
+          <div class="summaryTitle">Regular WCHR</div>
+          <div class="summaryValue">${totalWchr}</div>
+          <div class="summaryMeta">Total WCHR needed</div>
+        </div>
+        <div class="summaryCard">
+          <div class="summaryTitle">WCHC</div>
+          <div class="summaryValue">${totalWchc}</div>
+          <div class="summaryMeta">Total WCHC needed</div>
+        </div>
+        <div class="summaryLegend">
+          <span class="legendItem gate">Gate change</span>
+          <span class="legendItem time">Time change</span>
+          <span class="legendItem arr">ARR</span>
+          <span class="legendItem dep">DEP</span>
+        </div>
+      `;
+    }
+
+    function onFieldInput(e) {
+      typingUntil = Date.now() + 1200;
+
+      const el = e.target;
+      if (el.type === "checkbox") return;
+      const key = el.getAttribute("data-key");
+      const field = el.getAttribute("data-field");
+      const val = getFieldValue(el);
+      if (!key || !field) return;
+
+      const timerKey = `${key}__${field}`;
+      if (saveTimers.has(timerKey)) clearTimeout(saveTimers.get(timerKey));
+
+      saveTimers.set(timerKey, setTimeout(() => {
+        saveTimers.delete(timerKey);
+        saveField(key, field, val);
+      }, 700));
+    }
+
+    function onFieldBlur(e) {
+      const el = e.target;
+      if (el.type === "checkbox") return;
+      const key = el.getAttribute("data-key");
+      const field = el.getAttribute("data-field");
+      const val = getFieldValue(el);
+      if (!key || !field) return;
+      saveField(key, field, val);
+    }
+
+    function onFieldChange(e) {
+      const el = e.target;
+      if (!(el.type === "checkbox" || el.tagName === "SELECT")) return;
+      const key = el.getAttribute("data-key");
+      const field = el.getAttribute("data-field");
+      const val = getFieldValue(el);
+      if (!key || !field) return;
+      saveField(key, field, val);
+    }
+
+    function getFieldValue(el) {
+      if (!el) return "";
+      if (el.type === "checkbox") return el.checked;
+      return el.value;
+    }
+
+    function applyLocalFieldUpdate(key, field, val) {
+      const keyStr = String(key);
+      rows = rows.map(r => (String(r.key) === keyStr ? { ...r, [field]: val } : r));
+
+      const cacheKey = cacheKey_();
+      const hit = cache.get(cacheKey);
+      if (hit && Array.isArray(hit.rows)) {
+        const updatedRows = hit.rows.map(r => (String(r.key) === keyStr ? { ...r, [field]: val } : r));
+        cache.set(cacheKey, { ts: Date.now(), rows: updatedRows });
+      }
+
+      render();
+    }
+
+    async function saveField(key, field, val) {
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      setErr("");
+      const payload = { key };
+      payload[field] = val;
+      const isWatchlist = field === "watchlist";
+      let prevWatchVal = null;
+      if (isWatchlist) {
+        const existing = rows.find(r => String(r.key) === String(key));
+        prevWatchVal = existing ? (existing.watchlist ?? "") : "";
+        applyLocalFieldUpdate(key, field, val);
+        rememberPendingEdit(key, field, val);
+      }
+
+      try {
+        const res = await fetch(API_BASE + "/lead/update", {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+            "authorization": "Bearer " + token
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data || !data.ok) {
+          setErr((data && data.error) || "Update failed");
+          if (isWatchlist) {
+            clearPendingEdit(key, field);
+            applyLocalFieldUpdate(key, field, prevWatchVal);
+            await refreshAfterAction();
+          }
+          return;
+        }
+        if (isWatchlist) clearPendingEdit(key, field);
+      } catch (e) {
+        setErr(e && e.message ? e.message : String(e));
+        if (isWatchlist) {
+          clearPendingEdit(key, field);
+          applyLocalFieldUpdate(key, field, prevWatchVal);
+          await refreshAfterAction();
+        }
+        return;
+      }
+
+      if (!isWatchlist) {
+        await refreshAfterAction();
+      }
+    }
+
+    async function ack(key) {
+      if (!key) return;
+
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      setErr("");
+
+      ackSuppress.set(String(key), Date.now() + ACK_SUPPRESS_MS);
+      cache.delete(cacheKey_());
+
+      rows = rows.map(r => (String(r.key) !== String(key)) ? r : ({ ...r, alert:"", gateChanged:false, timeChanged:false, zoneChanged:false }));
+      render();
+
+      try {
+        const res = await fetch(API_BASE + "/lead/ack", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "authorization": "Bearer " + token
+          },
+          body: JSON.stringify({ key, zone: selectedZone })
+        });
+        const data = await res.json();
+        if (!data || !data.ok) setErr((data && data.error) || "ACK failed");
+      } catch (e) {
+        setErr((e && e.message) ? e.message : String(e));
+      }
+
+      await refreshAfterAction();
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+    function escapeAttr(s) { return escapeHtml(s).replaceAll("\n", " "); }
+
+    initOpsDayControl();
+    validateAuthThenInit();
+  </script>
+</body>
+</html>

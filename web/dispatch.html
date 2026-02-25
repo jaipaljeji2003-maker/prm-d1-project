@@ -1,0 +1,491 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PRM Dispatch</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <button onclick="manualRefresh()">Refresh</button>
+    <button onclick="logout()">Logout</button>
+
+    <div class="searchWrap">
+      <input id="q" placeholder="Search flight (ex: AC123, TS 101)..." oninput="onSearchInput()" />
+      <div class="hint">Search matches Flight (spaces ignored). Auto-refresh pauses while typing.</div>
+    </div>
+
+    <div class="filters">
+      <button class="pill active" id="fAll" onclick="setFilter('ALL')">All</button>
+      <button class="pill" id="fARR" onclick="setFilter('ARR')">ARR</button>
+      <button class="pill" id="fDEP" onclick="setFilter('DEP')">DEP</button>
+    </div>
+
+    <div class="filters hidden" id="opsDayControl">
+      <span>Ops Day</span>
+      <select id="opsDaySelect">
+        <option value="current">Current</option>
+        <option value="next">Next</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="err" class="err"></div>
+
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th>Flight</th><th>Type</th><th>Time (Est)</th><th>Time Δ</th><th>Sched</th>
+        <th>Origin/Dest</th><th>Gate</th><th>Zone</th><th>Alert</th>
+        <th>WCHR</th><th>WCHC</th><th>Comment</th>
+        <th>Assignment</th><th>Pax</th><th>Ack</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script src="/config.js"></script>
+  <script>
+    const API_BASE = (window.PRM_CONFIG && window.PRM_CONFIG.API_BASE) || "";
+    const LS_TOKEN = "PRM_TOKEN";
+    const LS_USER  = "PRM_USER";
+    const LS_OPS_DAY = "PRM_OPS_DAY_DISPATCH";
+
+    const POLL_MS = 10_000;
+    const BACKOFF_START_MS = 2_000;
+    const BACKOFF_MAX_MS = 15_000;
+    const LOAD_TIMEOUT_MS = 12_000;
+
+    let rows = [];
+    let filterType = "ALL";
+    let typingUntil = 0;
+    const saveTimers = new Map();
+
+    // Client-side write-through patches — mirrors the server's PATCH_TTL_MS.
+    // Prevents stale server/edge-cache data from overwriting a user's just-saved
+    // value when render() runs during the next poll cycle.
+    const CLIENT_PATCH_TTL_MS = 15_000;
+    const clientPatches = new Map(); // rowKey -> { fields: {...}, expAt }
+
+    function setClientPatch(key, fields) {
+      const existing = clientPatches.get(key);
+      clientPatches.set(key, {
+        fields: { ...(existing ? existing.fields : {}), ...fields },
+        expAt: Date.now() + CLIENT_PATCH_TTL_MS,
+      });
+    }
+
+    function applyClientPatches(row) {
+      const p = clientPatches.get(row.key);
+      if (!p) return row;
+      if (Date.now() > p.expAt) { clientPatches.delete(row.key); return row; }
+      return { ...row, ...p.fields };
+    }
+
+    let pollTimer = null;
+    let backoffMs = 0;
+    let opsDayMode = "current";
+    let opsDayEnabled = false;
+    let rowsRequestMeta = null;
+    let loadInFlight = null;
+    let staleNotice = "";
+
+    function getTorontoParts(date = new Date()) {
+      const fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Toronto",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      const parts = Object.fromEntries(fmt.formatToParts(date).map(p => [p.type, p.value]));
+      return {
+        hour: Number(parts.hour),
+        minute: Number(parts.minute),
+        second: Number(parts.second),
+      };
+    }
+
+    function isOpsDayToggleWindow() {
+      const p = getTorontoParts();
+      return p.hour < 4;
+    }
+
+    function initOpsDayControl() {
+      const control = document.getElementById("opsDayControl");
+      const select = document.getElementById("opsDaySelect");
+      if (!control || !select) return;
+
+      opsDayEnabled = isOpsDayToggleWindow();
+      control.classList.toggle("hidden", !opsDayEnabled);
+
+      if (opsDayEnabled) {
+        const stored = localStorage.getItem(LS_OPS_DAY);
+        opsDayMode = (stored === "next" || stored === "current") ? stored : "current";
+        select.value = opsDayMode;
+        select.addEventListener("change", () => {
+          opsDayMode = select.value === "next" ? "next" : "current";
+          localStorage.setItem(LS_OPS_DAY, opsDayMode);
+          refreshAfterAction();
+        });
+      } else {
+        opsDayMode = "current";
+        select.value = "current";
+      }
+    }
+
+    function getToken() { return localStorage.getItem(LS_TOKEN) || ""; }
+    function hardRedirectToLogin() { window.location.href = "/"; }
+
+    function renderBanner(errMsg = "") {
+      const el = document.getElementById("err");
+      const bits = [];
+      if (errMsg) bits.push(errMsg);
+      if (staleNotice) bits.push(staleNotice);
+      el.textContent = bits.join(" • ");
+    }
+
+    function setErr(msg) { renderBanner(msg || ""); }
+
+    function logout() {
+      localStorage.removeItem(LS_TOKEN);
+      localStorage.removeItem(LS_USER);
+      hardRedirectToLogin();
+    }
+
+    function resetBackoff() { backoffMs = 0; }
+    function nextBackoff() {
+      backoffMs = backoffMs ? Math.min(backoffMs * 2, BACKOFF_MAX_MS) : BACKOFF_START_MS;
+      return backoffMs;
+    }
+
+    function scheduleNextPoll(delay) {
+      if (pollTimer) clearTimeout(pollTimer);
+      pollTimer = setTimeout(pollLoop, delay);
+    }
+
+    async function pollLoop() {
+      const ok = await load(false);
+      if (ok) resetBackoff();
+      scheduleNextPoll(ok ? POLL_MS : nextBackoff());
+    }
+
+    function refreshAfterAction() {
+      resetBackoff();
+      if (pollTimer) clearTimeout(pollTimer);
+      return load(true).finally(() => scheduleNextPoll(POLL_MS));
+    }
+
+    function manualRefresh() {
+      refreshAfterAction();
+    }
+
+    async function validateAuthThenStart() {
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      try {
+        const res = await fetch(API_BASE + "/auth/validate?app=dispatch", {
+          headers: { "authorization": "Bearer " + token }
+        });
+        const data = await res.json();
+        if (!data || !data.ok) {
+          localStorage.removeItem(LS_TOKEN);
+          localStorage.removeItem(LS_USER);
+          return hardRedirectToLogin();
+        }
+        await load(true);
+        resetBackoff();
+        scheduleNextPoll(POLL_MS);
+      } catch {
+        localStorage.removeItem(LS_TOKEN);
+        localStorage.removeItem(LS_USER);
+        hardRedirectToLogin();
+      }
+    }
+
+    function fmtTime(v) {
+      if (!v) return "";
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return String(v);
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mm = String(d.getMinutes()).padStart(2,"0");
+      return hh + ":" + mm;
+    }
+
+    function pickPrev(r){ return (r.timePrev || ""); }
+    function pickDelta(r){ return (r.timeDelta || ""); }
+
+    function setFilter(t) {
+      filterType = t;
+      document.getElementById("fAll").classList.toggle("active", t === "ALL");
+      document.getElementById("fARR").classList.toggle("active", t === "ARR");
+      document.getElementById("fDEP").classList.toggle("active", t === "DEP");
+      render();
+    }
+
+    function onSearchInput() { typingUntil = Date.now() + 1200; render(); }
+
+    function isTyping() {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      return Date.now() < typingUntil || tag === "INPUT" || tag === "TEXTAREA";
+    }
+
+    function abortRowsRequest(reason) {
+      if (!rowsRequestMeta) return;
+      rowsRequestMeta.reason = reason || "cancelled";
+      rowsRequestMeta.controller.abort();
+    }
+
+    async function load(force=false) {
+      if (!force && isTyping()) return true;
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      if (loadInFlight) abortRowsRequest("superseded");
+
+      const run = (async () => {
+        const controller = new AbortController();
+        const reqMeta = { controller, reason: "" };
+        rowsRequestMeta = reqMeta;
+
+        const timeoutId = setTimeout(() => {
+          reqMeta.reason = "timeout";
+          controller.abort();
+        }, LOAD_TIMEOUT_MS);
+
+        setErr("");
+        staleNotice = "";
+        try {
+          const url = new URL(API_BASE + "/dispatch/rows");
+          url.searchParams.set("opsDay", opsDayMode);
+
+          const res = await fetch(url.toString(), {
+            headers: { "authorization": "Bearer " + token },
+            signal: controller.signal,
+          });
+          const data = await res.json();
+          if (!data || !data.ok) {
+            if ((data && data.error || "").toLowerCase().includes("expired")) return hardRedirectToLogin();
+            setErr((data && data.error) || "Fetch failed");
+            return false;
+          }
+          rows = data.rows || [];
+          const staleByHeader = res.headers.get("x-prm-stale") === "1";
+          const staleByBody = !!(data && data.stale);
+          staleNotice = (staleByHeader || staleByBody) ? "Showing cached data" : "";
+          renderBanner("");
+          render();
+          return true;
+        } catch (e) {
+          if (e && e.name === "AbortError") {
+            if (reqMeta.reason === "superseded") return true;
+            if (reqMeta.reason === "timeout") {
+              setErr("Dispatch rows request timed out after 12s. Auto-refresh will retry.");
+              return false;
+            }
+            return false;
+          }
+
+          const msg = e && e.message ? e.message : String(e);
+          if (/unauthorized|expired|missing token/i.test(msg)) return hardRedirectToLogin();
+          setErr(msg || "Unable to load dispatch rows. Auto-refresh will retry.");
+          return false;
+        } finally {
+          clearTimeout(timeoutId);
+          if (rowsRequestMeta === reqMeta) rowsRequestMeta = null;
+          if (loadInFlight === run) loadInFlight = null;
+        }
+      })();
+
+      loadInFlight = run;
+      return run;
+    }
+
+    function render() {
+      const tb = document.querySelector("#tbl tbody");
+      tb.innerHTML = "";
+
+      const qRaw = (document.getElementById("q").value || "").trim().toUpperCase();
+      const qNorm = qRaw.replace(/\s+/g, "");
+
+      const filtered = rows.filter(r => {
+        const rt = String(r.type || "").toUpperCase();
+        const ftOk = (filterType === "ALL") || (rt === filterType);
+        const flightNorm = String(r.flight || "").toUpperCase().replace(/\s+/g, "");
+        const qOk = !qNorm || flightNorm.includes(qNorm);
+        return ftOk && qOk;
+      });
+
+      filtered.forEach(rawRow => {
+        const r = applyClientPatches(rawRow);
+        const tr = document.createElement("tr");
+
+        const rt = String(r.type || "").toUpperCase();
+        const typeClass = (rt === "ARR") ? "type-arr" : (rt === "DEP") ? "type-dep" : "";
+
+        const gateCellClass = r.gateChanged ? "cell-gate-changed" : "";
+        const timeCellClass = r.timeChanged ? "cell-time-changed" : "";
+
+        const prev = pickPrev(r);
+        const delta = pickDelta(r);
+
+        const timePrevLine = (r.timeChanged && (prev || String(delta).length))
+          ? `<div class="small">Prev: ${escapeHtml(fmtTime(prev))}${String(delta).length ? ` | Δ ${escapeHtml(delta)}m` : ""}</div>`
+          : "";
+
+        tr.innerHTML = `
+          <td><div><b>${escapeHtml(r.flight || "")}</b></div><div class="small">${escapeHtml(r.key || "")}</div></td>
+          <td class="${typeClass}">${escapeHtml(r.type || "")}</td>
+          <td class="${timeCellClass}">${escapeHtml(fmtTime(r.timeEst))}${timePrevLine}</td>
+          <td class="${timeCellClass}">${r.timeChanged ? escapeHtml(delta || "") : ""}</td>
+          <td>${escapeHtml(fmtTime(r.sched))}</td>
+          <td>${escapeHtml(r.origin || "")}</td>
+          <td class="${gateCellClass}">${escapeHtml(r.gate || "")}</td>
+          <td>${escapeHtml(r.zone || "")}</td>
+          <td class="alert">${escapeHtml(r.alert || "")}</td>
+
+          <td><input data-key="${escapeAttr(r.key)}" data-field="wchr" value="${escapeAttr(r.wchr || "")}" /></td>
+          <td><input data-key="${escapeAttr(r.key)}" data-field="wchc" value="${escapeAttr(r.wchc || "")}" /></td>
+          <td><textarea data-key="${escapeAttr(r.key)}" data-field="comment">${escapeHtml(r.comment || "")}</textarea></td>
+
+          <td>${escapeHtml(r.assignment || "")}</td>
+          <td>${escapeHtml(r.pax || "")}</td>
+
+          <td><button onclick="ack('${escapeAttr(r.key)}')">Ack</button></td>
+        `;
+
+        tb.appendChild(tr);
+      });
+
+      tb.querySelectorAll("input,textarea").forEach(el => {
+        el.addEventListener("input", onFieldInput);
+        el.addEventListener("blur", onFieldBlur);
+      });
+    }
+
+    function onFieldInput(e) {
+      typingUntil = Date.now() + 1200;
+      const el = e.target;
+      const key = el.getAttribute("data-key");
+      const field = el.getAttribute("data-field");
+      const val = el.value;
+      if (!key || !field) return;
+
+      const timerKey = `${key}__${field}`;
+      if (saveTimers.has(timerKey)) clearTimeout(saveTimers.get(timerKey));
+
+      saveTimers.set(timerKey, setTimeout(() => {
+        saveTimers.delete(timerKey);
+        saveField(key, field, val);
+      }, 700));
+    }
+
+    function onFieldBlur(e) {
+      const el = e.target;
+      const key = el.getAttribute("data-key");
+      const field = el.getAttribute("data-field");
+      const val = el.value;
+      if (!key || !field) return;
+      saveField(key, field, val);
+    }
+
+    async function saveField(key, field, val) {
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      // Optimistically lock this value so the next poll render won't flicker
+      // it back to the stale server/edge-cache value.
+      setClientPatch(key, { [field]: val });
+      rows = rows.map(r => r.key === key ? { ...r, [field]: val } : r);
+
+      setErr("");
+      const payload = { key };
+      payload[field] = val;
+
+      try {
+        const res = await fetch(API_BASE + "/dispatch/update", {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+            "authorization": "Bearer " + token
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data || !data.ok) {
+          // Revert the optimistic patch and force a refresh so the UI
+          // shows the real state rather than a stale local value.
+          clientPatches.delete(key);
+          rows = rows.map(r => r.key === key ? { ...r, [field]: val } : r);
+          setErr((data && data.error) || "Update failed");
+          await refreshAfterAction();
+        }
+        // On success: the client patch protects the value for CLIENT_PATCH_TTL_MS.
+        // The next regular poll will confirm the saved state — no full refresh needed.
+      } catch (e) {
+        clientPatches.delete(key);
+        setErr(e && e.message ? e.message : String(e));
+        await refreshAfterAction();
+      }
+    }
+
+    async function ack(key) {
+      if (!key) return;
+      const token = getToken();
+      if (!token) return hardRedirectToLogin();
+
+      setErr("");
+
+      const ackedFields = { alert: "", gateChanged: false, timeChanged: false, zoneChanged: false };
+
+      // Optimistic update: apply locally and lock with a client patch so the
+      // next poll render can't flicker back to the stale server/edge-cache state.
+      setClientPatch(key, ackedFields);
+      rows = rows.map(r => (r.key !== key) ? r : ({ ...r, ...ackedFields }));
+      render();
+
+      try {
+        const res = await fetch(API_BASE + "/dispatch/ack", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "authorization": "Bearer " + token
+          },
+          body: JSON.stringify({ key })
+        });
+        const data = await res.json();
+        if (!data || !data.ok) {
+          // Revert and force a refresh so the real state is shown.
+          clientPatches.delete(key);
+          setErr((data && data.error) || "ACK failed");
+          await refreshAfterAction();
+        }
+        // On success: client patch holds the acked state for CLIENT_PATCH_TTL_MS.
+        // Regular poll will confirm — no immediate refresh needed.
+      } catch (e) {
+        clientPatches.delete(key);
+        setErr(e && e.message ? e.message : String(e));
+        await refreshAfterAction();
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+    function escapeAttr(s) { return escapeHtml(s).replaceAll("\n", " "); }
+
+    initOpsDayControl();
+    validateAuthThenStart();
+  </script>
+</body>
+</html>
