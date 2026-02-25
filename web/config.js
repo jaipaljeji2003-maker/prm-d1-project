@@ -1,9 +1,9 @@
 /**
  * Frontend config — point at your deployed D1 Worker URL.
  *
- *   Production:  https://prm-d1-worker.YOUR_SUBDOMAIN.workers.dev
+ *   Production:  https://prm-d1-worker.prm-d1-project.workers.dev
  *   Local dev:   http://localhost:8788
  */
 window.PRM_CONFIG = {
-  API_BASE: "https://prm-d1-worker.YOUR_SUBDOMAIN.workers.dev"
+  API_BASE: "https://prm-d1-worker.prm-d1-project.workers.dev"
 };
