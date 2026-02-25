@@ -15,6 +15,6 @@ binding      = "DB"
 database_name = "prm-dispatch"
 database_id  = "b2d9f164-ac75-4884-b5d2-cab7f812cd81"
 
-# Cron: every minute for FIDS sync, nightly archive at 01:10
+# Cron: every minute for FIDS sync, nightly archive at 03:00 Toronto (07:00 EDT / 08:00 EST)
 [triggers]
-crons = ["* * * * *", "10 1 * * *"]
+crons = ["* * * * *", "0 7 * * *", "0 8 * * *"]

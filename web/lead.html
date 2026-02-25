@@ -31,6 +31,12 @@
       <button class="pill" id="cTime" onclick="setChangeFilter('TIME')">Time change</button>
     </div>
 
+    <div class="filters" id="timeWindowControl">
+      <label>From <input type="time" id="fromTime" onchange="onTimeWindowChange()" /></label>
+      <label>To <input type="time" id="toTime" onchange="onTimeWindowChange()" /></label>
+      <button class="pill" onclick="clearTimeWindow()">Reset</button>
+    </div>
+
     <div class="filters hidden" id="opsDayControl">
       <span>Ops Day</span>
       <select id="opsDaySelect">
@@ -55,7 +61,7 @@
     <table id="tbl">
       <thead>
         <tr>
-          <th>Watch</th><th>Flight</th><th>Type</th><th>Time</th><th>Gate</th><th>Zone</th>
+          <th>Watch</th><th>Flight</th><th>Type</th><th>Time</th><th>Origin/Dest</th><th>Gate</th><th>Zone</th>
           <th>WCHR</th><th>WCHC</th><th>Alert</th>
           <th>Assignment</th><th>Pax</th><th>Ack</th>
         </tr>
@@ -202,7 +208,7 @@
 
     function isOpsDayToggleWindow() {
       const p = getTorontoParts();
-      return p.hour < 4;
+      return p.hour >= 12 || p.hour < 3;
     }
 
     function initOpsDayControl() {
@@ -364,6 +370,10 @@
         url.searchParams.set("type", type);
         url.searchParams.set("q", document.getElementById("q").value || "");
         url.searchParams.set("opsDay", opsDayMode);
+        const twFrom = document.getElementById("fromTime").value || "";
+        const twTo   = document.getElementById("toTime").value   || "";
+        if (twFrom) url.searchParams.set("from", twFrom);
+        if (twTo)   url.searchParams.set("to", twTo);
 
         const res = await fetch(url.toString(), {
           headers: { "authorization": "Bearer " + token }
@@ -416,7 +426,7 @@
 
       if (!filtered.length) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td class="empty" colspan="12">No flights match the current filters.</td>`;
+        tr.innerHTML = `<td class="empty" colspan="13">No flights match the current filters.</td>`;
         tb.appendChild(tr);
         return;
       }
@@ -446,6 +456,7 @@
           <td><div><b>${escapeHtml(r.flight || "")}</b></div><div class="small">${escapeHtml(r.key || "")}</div></td>
           <td class="${typeClass}">${escapeHtml(r.type || "")}</td>
           <td class="${timeClass}">${escapeHtml(fmtTimeOnly(r.timeEst))}</td>
+          <td>${escapeHtml(r.origin || "")}</td>
           <td class="${gateClass}">${escapeHtml(r.gate || "")}</td>
           <td>${escapeHtml(r.zone || "")}</td>
           <td class="num">${escapeHtml(r.wchr || "")}</td>
@@ -664,6 +675,18 @@
         .replaceAll("'", "&#39;");
     }
     function escapeAttr(s) { return escapeHtml(s).replaceAll("\n", " "); }
+
+    function onTimeWindowChange() {
+      cache.clear();
+      useCacheThenFetch_();
+    }
+
+    function clearTimeWindow() {
+      document.getElementById("fromTime").value = "";
+      document.getElementById("toTime").value   = "";
+      cache.clear();
+      useCacheThenFetch_();
+    }
 
     initOpsDayControl();
     validateAuthThenInit();

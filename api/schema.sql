@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS flights (
   comment            TEXT DEFAULT '',
   assignment         TEXT DEFAULT '',
   pax_assisted       INTEGER DEFAULT 0,
+  watchlist          TEXT DEFAULT '',    -- "1" when watched, "" otherwise
 
   -- Zone tracking
   zone_current       TEXT DEFAULT 'Unassigned',

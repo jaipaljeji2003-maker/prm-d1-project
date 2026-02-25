@@ -22,6 +22,12 @@
       <button class="pill" id="fDEP" onclick="setFilter('DEP')">DEP</button>
     </div>
 
+    <div class="filters" id="timeWindowControl">
+      <label>From <input type="time" id="fromTime" onchange="onTimeWindowChange()" /></label>
+      <label>To <input type="time" id="toTime" onchange="onTimeWindowChange()" /></label>
+      <button class="pill" onclick="clearTimeWindow()">Reset</button>
+    </div>
+
     <div class="filters hidden" id="opsDayControl">
       <span>Ops Day</span>
       <select id="opsDaySelect">
@@ -112,7 +118,7 @@
 
     function isOpsDayToggleWindow() {
       const p = getTorontoParts();
-      return p.hour < 4;
+      return p.hour >= 12 || p.hour < 3;
     }
 
     function initOpsDayControl() {
@@ -263,6 +269,10 @@
         try {
           const url = new URL(API_BASE + "/dispatch/rows");
           url.searchParams.set("opsDay", opsDayMode);
+          const twFrom = document.getElementById("fromTime").value || "";
+          const twTo   = document.getElementById("toTime").value   || "";
+          if (twFrom) url.searchParams.set("from", twFrom);
+          if (twTo)   url.searchParams.set("to", twTo);
 
           const res = await fetch(url.toString(), {
             headers: { "authorization": "Bearer " + token },
@@ -483,6 +493,16 @@
         .replaceAll("'", "&#39;");
     }
     function escapeAttr(s) { return escapeHtml(s).replaceAll("\n", " "); }
+
+    function onTimeWindowChange() {
+      refreshAfterAction();
+    }
+
+    function clearTimeWindow() {
+      document.getElementById("fromTime").value = "";
+      document.getElementById("toTime").value   = "";
+      refreshAfterAction();
+    }
 
     initOpsDayControl();
     validateAuthThenStart();

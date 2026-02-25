@@ -177,54 +177,84 @@ function addDaysLocal(ymd, deltaDays, tz) {
 
 /**
  * Compute operational window in Toronto time.
- * Ops day: 04:00 → next-day 03:59:59.999
- * Lookback cap: show at most 1 hour of past flights (mirrors existing Worker behaviour).
+ * Ops day: 03:00 → next-day 02:59:59.999
+ * Lookback cap: show at most 1 hour of past flights (default behaviour).
+ *
+ * Optional overrides:
+ *   fromTime  "HH:MM" Toronto local — custom start (no lookback cap)
+ *   toTime    "HH:MM" Toronto local — custom end
+ *   opsDay    "current" | "next"  — shift to next ops day
  */
-function computeOpsWindow(now = new Date()) {
+function computeOpsWindow(now = new Date(), { fromTime, toTime, opsDay } = {}) {
   const tz = DEFAULT_TZ;
   const p  = getTzParts(now, tz);
 
   let opDate = { year: p.year, month: p.month, day: p.day };
-  if (p.hour < 4) opDate = addDaysLocal(opDate, -1, tz);
+  if (p.hour < 3) opDate = addDaysLocal(opDate, -1, tz);
 
-  const startUtc = zonedTimeToUtc({ ...opDate, hour: 4, minute: 0, second: 0 }, tz);
+  // Shift to next ops day if requested
+  if (opsDay === "next") opDate = addDaysLocal(opDate, 1, tz);
+
+  const opsStart = zonedTimeToUtc({ ...opDate, hour: 3, minute: 0, second: 0 }, tz);
   const endDate  = addDaysLocal(opDate, 1, tz);
-  const endUtc   = zonedTimeToUtc({ ...endDate, hour: 3, minute: 59, second: 59 }, tz);
-  endUtc.setUTCMilliseconds(999);
+  const opsEnd   = zonedTimeToUtc({ ...endDate, hour: 2, minute: 59, second: 59 }, tz);
+  opsEnd.setUTCMilliseconds(999);
 
-  // 1-hour lookback cap (same as existing Worker)
-  let start = startUtc;
-  const lookback = new Date(now.getTime() - 60 * 60 * 1000);
-  if (lookback > start) start = lookback;
+  let start, end;
+
+  if (fromTime) {
+    const [fh, fm] = fromTime.split(":").map(Number);
+    // Times < 03:00 belong to the next calendar day within this ops day
+    const fromDate = fh < 3 ? addDaysLocal(opDate, 1, tz) : opDate;
+    start = zonedTimeToUtc({ ...fromDate, hour: fh, minute: fm, second: 0 }, tz);
+  } else if (opsDay === "next") {
+    start = opsStart; // show full next ops day (no lookback cap)
+  } else {
+    // 1-hour lookback cap (default behaviour)
+    start = opsStart;
+    const lookback = new Date(now.getTime() - 60 * 60 * 1000);
+    if (lookback > start) start = lookback;
+  }
+
+  if (toTime) {
+    const [th, tm] = toTime.split(":").map(Number);
+    const toDate = th < 3 ? addDaysLocal(opDate, 1, tz) : opDate;
+    end = zonedTimeToUtc({ ...toDate, hour: th, minute: tm, second: 59 }, tz);
+    end.setUTCMilliseconds(999);
+  } else {
+    end = opsEnd;
+  }
 
   return {
     start,
-    end: endUtc,
+    end,
     startISO: start.toISOString(),
-    endISO:   endUtc.toISOString(),
+    endISO:   end.toISOString(),
   };
 }
 
 /**
  * Full ops window with NO lookback cap — used for FIDS sync and archive.
- * Toronto 04:00 → next day 03:59:59.  Between 00:00–03:59 also includes NEXT ops-day.
+ * Toronto 03:00 → next day 02:59:59.
+ * After 12:00 noon (or before 03:00) also includes NEXT ops-day so the
+ * "next day" toggle can show pre-loaded flights.
  */
 function computeFullOpsWindow(now = new Date()) {
   const tz = DEFAULT_TZ;
   const p  = getTzParts(now, tz);
 
   let opDate = { year: p.year, month: p.month, day: p.day };
-  if (p.hour < 4) opDate = addDaysLocal(opDate, -1, tz);
+  if (p.hour < 3) opDate = addDaysLocal(opDate, -1, tz);
 
-  const start  = zonedTimeToUtc({ ...opDate, hour: 4, minute: 0, second: 0 }, tz);
+  const start  = zonedTimeToUtc({ ...opDate, hour: 3, minute: 0, second: 0 }, tz);
   const d1     = addDaysLocal(opDate, 1, tz);
-  let   end    = zonedTimeToUtc({ ...d1, hour: 3, minute: 59, second: 59 }, tz);
+  let   end    = zonedTimeToUtc({ ...d1, hour: 2, minute: 59, second: 59 }, tz);
   end.setUTCMilliseconds(999);
 
-  // Between 00:00–03:59 also preload next ops-day (mirrors GAS)
-  if (p.hour < 4) {
+  // After 12:00 noon or before 03:00: also preload next ops-day
+  if (p.hour >= 12 || p.hour < 3) {
     const d2 = addDaysLocal(opDate, 2, tz);
-    end       = zonedTimeToUtc({ ...d2, hour: 3, minute: 59, second: 59 }, tz);
+    end       = zonedTimeToUtc({ ...d2, hour: 2, minute: 59, second: 59 }, tz);
     end.setUTCMilliseconds(999);
   }
 
@@ -487,9 +517,9 @@ async function fetchFIDSData(env) {
   const now = new Date();
   const p   = getTzParts(now, tz);
 
-  // Current ops-day base date (before 04:00 = yesterday)
+  // Current ops-day base date (before 03:00 = yesterday)
   let opBase = { year: p.year, month: p.month, day: p.day };
-  if (p.hour < 4) opBase = addDaysLocal(opBase, -1, tz);
+  if (p.hour < 3) opBase = addDaysLocal(opBase, -1, tz);
 
   function fmtDate(ymd) {
     return `${ymd.year}-${String(ymd.month).padStart(2,"0")}-${String(ymd.day).padStart(2,"0")}`;
@@ -503,13 +533,13 @@ async function fetchFIDSData(env) {
   const BASE = "https://aerodatabox.p.rapidapi.com/flights/airports/iata/YYZ";
 
   const windows = [
-    `${BASE}/${d0}T04:00/${d0}T16:00${Q}`,
-    `${BASE}/${d0}T16:00/${d1}T03:59${Q}`,
+    `${BASE}/${d0}T03:00/${d0}T16:00${Q}`,
+    `${BASE}/${d0}T16:00/${d1}T02:59${Q}`,
   ];
-  // Between 00:00–03:59: also preload next ops-day
-  if (p.hour < 4) {
-    windows.push(`${BASE}/${d1}T04:00/${d1}T16:00${Q}`);
-    windows.push(`${BASE}/${d1}T16:00/${d2}T03:59${Q}`);
+  // After 12:00 noon or before 03:00: also preload next ops-day
+  if (p.hour >= 12 || p.hour < 3) {
+    windows.push(`${BASE}/${d1}T03:00/${d1}T16:00${Q}`);
+    windows.push(`${BASE}/${d1}T16:00/${d2}T02:59${Q}`);
   }
 
   let rawArr = [], rawDep = [];
@@ -858,13 +888,13 @@ async function nightlyArchive(env) {
   const tz  = DEFAULT_TZ;
   const p   = getTzParts(now, tz);
 
-  // Archive yesterday's ops-day (before 04:00 → use day-2)
+  // Archive yesterday's ops-day (before 03:00 → use day-2)
   let archiveBase = { year: p.year, month: p.month, day: p.day };
-  if (p.hour < 4) archiveBase = addDaysLocal(archiveBase, -2, tz);
+  if (p.hour < 3) archiveBase = addDaysLocal(archiveBase, -2, tz);
   else             archiveBase = addDaysLocal(archiveBase, -1, tz);
 
-  const archStart = zonedTimeToUtc({ ...archiveBase, hour: 4, minute: 0, second: 0 }, tz);
-  const archEnd   = zonedTimeToUtc({ ...addDaysLocal(archiveBase, 1, tz), hour: 3, minute: 59, second: 59 }, tz);
+  const archStart = zonedTimeToUtc({ ...archiveBase, hour: 3, minute: 0, second: 0 }, tz);
+  const archEnd   = zonedTimeToUtc({ ...addDaysLocal(archiveBase, 1, tz), hour: 2, minute: 59, second: 59 }, tz);
   archEnd.setUTCMilliseconds(999);
 
   const opsDateStr = `${archiveBase.year}-${String(archiveBase.month).padStart(2,"0")}-${String(archiveBase.day).padStart(2,"0")}`;
@@ -963,7 +993,16 @@ async function handleValidate(req, env) {
 // ── Dispatch rows ─────────────────────────────────────────────
 
 async function handleDispatchRows(req, env) {
-  const win  = computeOpsWindow();
+  const url      = new URL(req.url);
+  const fromTime = url.searchParams.get("from") || "";
+  const toTime   = url.searchParams.get("to")   || "";
+  const opsDay   = url.searchParams.get("opsDay") || "current";
+
+  const win  = computeOpsWindow(new Date(), {
+    fromTime: fromTime || undefined,
+    toTime:   toTime   || undefined,
+    opsDay:   opsDay   || undefined,
+  });
   const rows = await getFlightsInWindow(env, win.startISO, win.endISO);
 
   const out = rows
@@ -1085,8 +1124,15 @@ async function handleLeadRows(req, env) {
   const zoneWanted = normalizeZone(url.searchParams.get("zone") || "TB");
   const typeFilter = String(url.searchParams.get("type") || "ALL").toUpperCase();
   const q          = String(url.searchParams.get("q") || "").trim().toUpperCase().replace(/\s+/g, "");
+  const fromTime   = url.searchParams.get("from") || "";
+  const toTime     = url.searchParams.get("to")   || "";
+  const opsDay     = url.searchParams.get("opsDay") || "current";
 
-  const win  = computeOpsWindow();
+  const win  = computeOpsWindow(new Date(), {
+    fromTime: fromTime || undefined,
+    toTime:   toTime   || undefined,
+    opsDay:   opsDay   || undefined,
+  });
   const rows = await getFlightsInWindow(env, win.startISO, win.endISO);
 
   // Board ACK column for the wanted zone
@@ -1121,6 +1167,7 @@ async function handleLeadRows(req, env) {
       type:        r.type,
       flight:      r.flight,
       timeEst:     r.time_est,
+      origin:      r.origin_dest || "",
       gate:        r.gate,
       zone:        r.zone_current,
 
@@ -1128,6 +1175,7 @@ async function handleLeadRows(req, env) {
       wchc:        String(r.wchc ?? ""),
       assignment:  r.assignment || "",
       pax:         String(r.pax_assisted ?? ""),
+      watchlist:   r.watchlist || "",
 
       alert:       r.alert_text || "",
       gateChanged: isTrue(r.gate_changed),
@@ -1165,6 +1213,13 @@ async function handleLeadUpdate(req, env, user) {
     fields.push("pax_assisted=?");
     vals.push(body.pax);
     patch.pax = String(body.pax ?? "");
+  }
+
+  if (body.watchlist !== undefined) {
+    const wVal = (body.watchlist === true || body.watchlist === "true" || body.watchlist === 1) ? "1" : "";
+    fields.push("watchlist=?");
+    vals.push(wVal);
+    patch.watchlist = wVal;
   }
 
   if (!fields.length) return json({ ok: true });
@@ -1234,8 +1289,8 @@ async function getFlightsInWindow(env, startISO, endISO) {
 async function handleScheduled(event, env) {
   const cron = event.cron || "";
 
-  // Nightly archive at ~01:10
-  if (cron === "10 1 * * *") {
+  // Nightly archive at 03:00 Toronto time (07:00 UTC in EDT, 08:00 UTC in EST)
+  if (cron === "0 7 * * *" || cron === "0 8 * * *") {
     try { await nightlyArchive(env); }
     catch (err) { console.error("[archive] error:", err?.message || err); }
     return;
