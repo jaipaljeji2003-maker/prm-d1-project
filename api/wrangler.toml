@@ -13,7 +13,7 @@ TIMEZONE = "America/Toronto"
 [[d1_databases]]
 binding      = "DB"
 database_name = "prm-dispatch"
-database_id  = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id  = "b2d9f164-ac75-4884-b5d2-cab7f812cd81"
 
 # Cron: every minute for FIDS sync, nightly archive at 01:10
 [triggers]
