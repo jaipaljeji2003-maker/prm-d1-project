@@ -69,104 +69,58 @@
     .kpi .value.prm  { color: #c0392b; }
     .kpi .value.flt  { color: #27ae60; }
 
-    /* ── Charts Row ──────────────────────────── */
-    .chart-row {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 14px;
-      margin-bottom: 14px;
-    }
-    @media (max-width: 900px) {
-      .chart-row { grid-template-columns: 1fr; }
-    }
-    .chart-panel {
-      background: #fff; border: 1px solid #e1e1e1; border-radius: 10px;
-      padding: 12px 14px;
-    }
-    .chart-panel h3 {
-      font-size: 12px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #444; margin-bottom: 8px;
-    }
-    .chart-panel canvas { width: 100% !important; }
-
-    /* ── Main Grid ───────────────────────────── */
-    .main-grid {
-      display: grid;
-      grid-template-columns: minmax(280px, 1fr) minmax(380px, 2fr);
-      gap: 14px;
-    }
-    @media (max-width: 1000px) {
-      .main-grid { grid-template-columns: 1fr; }
-    }
-
+    /* ── Panels ──────────────────────────────── */
     .panel {
       background: #fff; border: 1px solid #e1e1e1; border-radius: 10px;
-      overflow: hidden;
+      overflow: hidden; margin-bottom: 14px;
     }
     .panel h3 {
       font-size: 13px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.5px; padding: 8px 12px; background: #fafafa;
       border-bottom: 1px solid #e1e1e1; color: #444;
     }
-    .panel .tableWrap {
-      overflow: auto; max-height: 75vh;
+    .panel .chart-wrap {
+      padding: 12px 14px;
+      position: relative;
     }
 
-    /* ── Heatmap Table ───────────────────────── */
-    #heatmap {
-      width: 100%; border-collapse: collapse; font-size: 12px;
+    /* ── Bottom Row: bar chart + top 10 ──────── */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
     }
-    #heatmap th {
-      position: sticky; top: 0; z-index: 2;
-      background: #f7f7f7; font-size: 11px; text-transform: uppercase;
-      padding: 6px 4px; border-bottom: 2px solid #ddd;
-      white-space: nowrap;
+    @media (max-width: 900px) {
+      .bottom-row { grid-template-columns: 1fr; }
     }
-    #heatmap td {
-      text-align: center; padding: 5px 4px; border-bottom: 1px solid #eee;
-      font-weight: 600; font-size: 13px; min-width: 44px;
-    }
-    #heatmap .time-col {
-      font-weight: 700; text-align: left; padding-left: 8px;
-      white-space: nowrap; font-size: 12px; color: #333;
-    }
-    #heatmap .total-col { font-weight: 800; }
 
-    /* Heat classes */
-    .heat-0 { background: #fff; color: #ddd; }
-    .heat-1 { background: #d4edda; color: #155724; }
-    .heat-2 { background: #fff3cd; color: #856404; }
-    .heat-3 { background: #ffeaa7; color: #7c5e10; }
-    .heat-4 { background: #f8d7da; color: #721c24; }
-
-    /* ── Detail Table ────────────────────────── */
-    #detail {
+    /* ── Top 10 Table ────────────────────────── */
+    #top10 {
       width: 100%; border-collapse: collapse; font-size: 13px;
     }
-    #detail th {
-      position: sticky; top: 0; z-index: 2;
+    #top10 th {
       background: #f7f7f7; font-size: 11px; text-transform: uppercase;
-      padding: 6px 6px; border-bottom: 2px solid #ddd;
-      white-space: nowrap; text-align: left;
+      padding: 6px 8px; border-bottom: 2px solid #ddd;
+      text-align: left; white-space: nowrap;
     }
-    #detail td {
-      padding: 5px 6px; border-bottom: 1px solid #f0f0f0;
+    #top10 td {
+      padding: 6px 8px; border-bottom: 1px solid #f0f0f0;
       white-space: nowrap;
     }
-    #detail .flt { font-weight: 700; }
-    #detail .arr { color: #155724; }
-    #detail .dep { color: #1a4d8f; }
-    #detail .cnt { font-weight: 700; text-align: center; }
-    #detail .cnt-hi { font-weight: 700; text-align: center; color: #c00; }
+    #top10 .rank { font-weight: 800; color: #888; width: 28px; text-align: center; }
+    #top10 .flt { font-weight: 700; }
+    #top10 .arr { color: #155724; }
+    #top10 .dep { color: #1a4d8f; }
+    #top10 .cnt { font-weight: 700; text-align: center; }
+    #top10 .cnt-hi { font-weight: 700; text-align: center; color: #c00; }
 
     /* ── Print ────────────────────────────────── */
     @media print {
       body { background: #fff; padding: 0; }
       .topbar { display: none !important; }
-      .panel { border: 1px solid #ccc; break-inside: avoid; }
-      .chart-panel { break-inside: avoid; }
-      .chart-row { grid-template-columns: 1fr 280px; }
-      .main-grid { grid-template-columns: 1fr 2fr; }
+      .login-overlay { display: none !important; }
+      .panel { break-inside: avoid; border: 1px solid #ccc; }
     }
 
     /* ── Loading ──────────────────────────────── */
@@ -267,45 +221,43 @@
 
   <div class="summary" id="summary"></div>
 
-  <div class="chart-row" id="chartRow" style="display:none;">
-    <div class="chart-panel">
-      <h3>PRM Demand Over Time</h3>
-      <canvas id="barChart" height="220"></canvas>
-    </div>
-    <div class="chart-panel">
-      <h3>PRM by Zone</h3>
-      <canvas id="donutChart" height="220"></canvas>
-    </div>
-  </div>
-
   <div id="loading">Loading flight data...</div>
 
-  <div class="main-grid" id="mainGrid" style="display:none;">
+  <div id="content" style="display:none;">
+
+    <!-- Big line chart: full width -->
     <div class="panel">
-      <h3>Demand Heatmap — PRM Load by Plan Time &amp; Zone</h3>
-      <div class="tableWrap">
-        <table id="heatmap">
-          <thead id="heatmapHead"></thead>
-          <tbody id="heatmapBody"></tbody>
-        </table>
+      <h3>PRM Demand Timeline — Plan Time (03:00 → 02:59)</h3>
+      <div class="chart-wrap">
+        <canvas id="lineChart" height="280"></canvas>
       </div>
     </div>
 
-    <div class="panel">
-      <h3>Pre-Alert Flights</h3>
-      <div class="tableWrap">
-        <table id="detail">
-          <thead>
-            <tr>
-              <th>Plan</th><th>Est</th><th>Flight</th>
-              <th>Type</th><th>Gate</th><th>Zone</th>
-              <th>WR</th><th>WC</th><th>Tot</th>
-            </tr>
-          </thead>
-          <tbody id="detailBody"></tbody>
-        </table>
+    <!-- Bottom row: zone bar chart + top 10 -->
+    <div class="bottom-row">
+      <div class="panel">
+        <h3>Traffic by Zone</h3>
+        <div class="chart-wrap">
+          <canvas id="zoneBar" height="260"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Top 10 Heaviest Flights</h3>
+        <div style="overflow:auto; max-height: 340px;">
+          <table id="top10">
+            <thead>
+              <tr>
+                <th>#</th><th>Flight</th><th>Type</th>
+                <th>Plan</th><th>Est</th><th>Gate</th><th>Zone</th>
+                <th>WR</th><th>WC</th><th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="top10Body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -324,15 +276,15 @@
     let bucketMin = 15;
     let searchQ = "";
     let pollTimer = null;
-    let barChart = null;
-    let donutChart = null;
+    let lineChartObj = null;
+    let zoneBarObj = null;
 
     const ZONE_COLORS = {
-      "TB":         { bg: "rgba(52,152,219,0.7)",  border: "#2980b9" },
-      "Gates":      { bg: "rgba(46,204,113,0.7)",  border: "#27ae60" },
-      "Pier A":     { bg: "rgba(155,89,182,0.7)",  border: "#8e44ad" },
-      "T1":         { bg: "rgba(230,126,34,0.7)",  border: "#d35400" },
-      "Unassigned": { bg: "rgba(149,165,166,0.7)", border: "#7f8c8d" },
+      "TB":         { bg: "rgba(52,152,219,0.75)",  border: "#2980b9" },
+      "Gates":      { bg: "rgba(46,204,113,0.75)",  border: "#27ae60" },
+      "Pier A":     { bg: "rgba(155,89,182,0.75)",  border: "#8e44ad" },
+      "T1":         { bg: "rgba(230,126,34,0.75)",  border: "#d35400" },
+      "Unassigned": { bg: "rgba(149,165,166,0.75)", border: "#7f8c8d" },
     };
 
     /* ── Auth ─────────────────────────────────── */
@@ -351,7 +303,6 @@
     }
 
     function toTorontoHM(d) {
-      // Returns { h, m } in Toronto local
       const parts = new Intl.DateTimeFormat("en-CA", {
         timeZone: TZ, hour: "numeric", minute: "numeric", hour12: false,
       }).formatToParts(d);
@@ -360,7 +311,6 @@
         if (p.type === "hour") h = parseInt(p.value, 10);
         if (p.type === "minute") m = parseInt(p.value, 10);
       }
-      // Handle midnight: Intl may return 24 as 0
       return { h, m };
     }
 
@@ -392,7 +342,6 @@
     }
 
     function generateBucketKeys() {
-      // Ops day: 03:00 → 02:59, in steps of bucketMin
       const keys = [];
       for (let offset = 0; offset < 1440; offset += bucketMin) {
         let totalMin = 180 + offset; // 03:00 = 180
@@ -406,7 +355,6 @@
 
     /* ── Data processing ─────────────────────── */
     function processData() {
-      // Step 1: Parse and filter to PRM > 0
       const enriched = [];
       let totalWCHR = 0, totalWCHC = 0;
 
@@ -432,57 +380,53 @@
         });
       }
 
-      // Step 2: Apply filters
+      // Apply filters
       let filtered = enriched;
-
-      if (filterType !== "ALL") {
+      if (filterType !== "ALL")
         filtered = filtered.filter(r => r.type === filterType);
-      }
-      if (filterZone !== "ALL") {
+      if (filterZone !== "ALL")
         filtered = filtered.filter(r => r.zone === filterZone);
-      }
       if (searchQ) {
         const q = searchQ.toUpperCase().replace(/\s+/g, "");
         filtered = filtered.filter(r => r.flight.toUpperCase().replace(/\s+/g, "").includes(q));
       }
 
-      // Step 3: KPIs
+      // KPIs
       for (const r of filtered) {
         totalWCHR += r.wchr;
         totalWCHC += r.wchc;
       }
 
-      // Step 4: Heatmap aggregation
-      // heat: bucketKey → zone → count
-      const heat = new Map();
+      // Heatmap aggregation: bucketKey → total PRM
+      const bucketTotals = new Map();
       for (const r of filtered) {
-        if (!heat.has(r.bucketKey)) heat.set(r.bucketKey, new Map());
-        const byZone = heat.get(r.bucketKey);
-        byZone.set(r.zone, (byZone.get(r.zone) || 0) + r.prm);
+        bucketTotals.set(r.bucketKey, (bucketTotals.get(r.bucketKey) || 0) + r.prm);
       }
 
-      // Step 5: Sort detail by plan time
+      // Zone totals
+      const zoneTotals = {};
+      for (const z of ZONES) zoneTotals[z] = 0;
+      for (const r of filtered) {
+        zoneTotals[r.zone] = (zoneTotals[r.zone] || 0) + r.prm;
+      }
+
+      // Top 10 heaviest flights
+      const top10 = [...filtered].sort((a, b) => b.prm - a.prm).slice(0, 10);
+
+      // Sort all by plan time
       filtered.sort((a, b) => a.planTime.getTime() - b.planTime.getTime());
 
       return {
         kpi: { totalWCHR, totalWCHC, totalPRM: totalWCHR + totalWCHC, flights: filtered.length },
-        heat,
-        detail: filtered,
+        bucketTotals,
+        zoneTotals,
+        top10,
       };
-    }
-
-    /* ── Heat class ──────────────────────────── */
-    function heatClass(n) {
-      if (n <= 0) return "heat-0";
-      if (n <= 3) return "heat-1";
-      if (n <= 6) return "heat-2";
-      if (n <= 10) return "heat-3";
-      return "heat-4";
     }
 
     /* ── Render ──────────────────────────────── */
     function render() {
-      const { kpi, heat, detail } = processData();
+      const { kpi, bucketTotals, zoneTotals, top10 } = processData();
 
       // KPIs
       document.getElementById("summary").innerHTML = `
@@ -492,152 +436,160 @@
         <div class="kpi"><div class="label">Flights</div><div class="value flt">${kpi.flights}</div></div>
       `;
 
-      // Determine which zone columns to show
-      const zones = filterZone === "ALL" ? ZONES : [filterZone];
+      // Line chart
+      renderLineChart(bucketTotals);
 
-      // Heatmap header
-      let headHtml = "<tr><th>Time</th>";
-      for (const z of zones) headHtml += `<th>${esc(z)}</th>`;
-      headHtml += "<th>Total</th></tr>";
-      document.getElementById("heatmapHead").innerHTML = headHtml;
+      // Zone bar chart
+      renderZoneBar(zoneTotals);
 
-      // Heatmap body — only buckets with data
-      const bucketKeys = generateBucketKeys();
-      let bodyHtml = "";
-      for (const bk of bucketKeys) {
-        const byZone = heat.get(bk);
-        if (!byZone) continue; // skip empty buckets
-
-        let rowTotal = 0;
-        let cells = "";
-        for (const z of zones) {
-          const v = byZone.get(z) || 0;
-          rowTotal += v;
-          cells += `<td class="${heatClass(v)}">${v || ""}</td>`;
-        }
-        bodyHtml += `<tr>
-          <td class="time-col">${esc(bk)}</td>
-          ${cells}
-          <td class="total-col ${heatClass(rowTotal)}">${rowTotal}</td>
-        </tr>`;
-      }
-      if (!bodyHtml) {
-        bodyHtml = `<tr><td colspan="${zones.length + 2}" style="padding:20px;color:#888;">No pre-alerts found</td></tr>`;
-      }
-      document.getElementById("heatmapBody").innerHTML = bodyHtml;
-
-      // Detail table
-      let detHtml = "";
-      for (const r of detail) {
-        const typeCls = r.type === "ARR" ? "arr" : "dep";
-        const wchrCls = r.wchr >= 10 ? "cnt-hi" : "cnt";
-        const wchcCls = r.wchc >= 10 ? "cnt-hi" : "cnt";
-        const totCls = r.prm >= 10 ? "cnt-hi" : "cnt";
-        detHtml += `<tr>
-          <td>${esc(r.planStr)}</td>
-          <td>${esc(r.estStr)}</td>
-          <td class="flt">${esc(r.flight)}</td>
-          <td class="${typeCls}">${esc(r.type)}</td>
-          <td>${esc(r.gate)}</td>
-          <td>${esc(r.zone)}</td>
-          <td class="${wchrCls}">${r.wchr}</td>
-          <td class="${wchcCls}">${r.wchc}</td>
-          <td class="${totCls}">${r.prm}</td>
-        </tr>`;
-      }
-      if (!detHtml) {
-        detHtml = `<tr><td colspan="9" style="padding:20px;color:#888;">No pre-alerts found</td></tr>`;
-      }
-      document.getElementById("detailBody").innerHTML = detHtml;
-
-      // Charts
-      renderCharts(heat, detail);
+      // Top 10 table
+      renderTop10(top10);
     }
 
-    /* ── Chart rendering ─────────────────────── */
-    function renderCharts(heat, detail) {
-      const zones = filterZone === "ALL" ? ZONES : [filterZone];
-      const bucketKeys = generateBucketKeys();
-
-      // Collect only buckets that have data
-      const activeBuckets = bucketKeys.filter(bk => heat.has(bk));
-
-      // ── Stacked Bar Chart: PRM over time by zone ──
-      const barDatasets = zones.map(z => {
-        const c = ZONE_COLORS[z] || { bg: "rgba(100,100,100,0.6)", border: "#666" };
-        return {
-          label: z,
-          data: activeBuckets.map(bk => {
-            const byZone = heat.get(bk);
-            return byZone ? (byZone.get(z) || 0) : 0;
-          }),
-          backgroundColor: c.bg,
-          borderColor: c.border,
-          borderWidth: 1,
-        };
-      });
-
-      if (barChart) barChart.destroy();
-      const barCtx = document.getElementById("barChart").getContext("2d");
-      barChart = new Chart(barCtx, {
-        type: "bar",
-        data: { labels: activeBuckets, datasets: barDatasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
-          },
-          scales: {
-            x: {
-              stacked: true,
-              ticks: { font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 30 },
-              title: { display: true, text: "Plan Time", font: { size: 11 } },
-            },
-            y: {
-              stacked: true,
-              beginAtZero: true,
-              ticks: { stepSize: 1, font: { size: 11 } },
-              title: { display: true, text: "PRM Count", font: { size: 11 } },
-            },
-          },
-        },
-      });
-
-      // ── Donut Chart: PRM by zone ──
-      const zoneTotals = {};
-      for (const z of ZONES) zoneTotals[z] = 0;
-      for (const r of detail) {
-        const z = r.zone || "Unassigned";
-        zoneTotals[z] = (zoneTotals[z] || 0) + r.prm;
+    /* ── Line Chart: PRM over time ───────────── */
+    function renderLineChart(bucketTotals) {
+      const allKeys = generateBucketKeys();
+      // Only include range from first to last bucket with data
+      let firstIdx = -1, lastIdx = -1;
+      for (let i = 0; i < allKeys.length; i++) {
+        if (bucketTotals.has(allKeys[i])) {
+          if (firstIdx < 0) firstIdx = i;
+          lastIdx = i;
+        }
       }
 
-      const donutZones = ZONES.filter(z => zoneTotals[z] > 0);
-      const donutData = donutZones.map(z => zoneTotals[z]);
-      const donutBg = donutZones.map(z => (ZONE_COLORS[z] || { bg: "#999" }).bg);
-      const donutBorder = donutZones.map(z => (ZONE_COLORS[z] || { border: "#666" }).border);
+      let labels, data;
+      if (firstIdx < 0) {
+        labels = allKeys;
+        data = allKeys.map(() => 0);
+      } else {
+        // Include 1 bucket padding on each side for visual breathing room
+        const start = Math.max(0, firstIdx - 1);
+        const end = Math.min(allKeys.length - 1, lastIdx + 1);
+        labels = allKeys.slice(start, end + 1);
+        data = labels.map(k => bucketTotals.get(k) || 0);
+      }
 
-      if (donutChart) donutChart.destroy();
-      const donutCtx = document.getElementById("donutChart").getContext("2d");
-      donutChart = new Chart(donutCtx, {
-        type: "doughnut",
+      if (lineChartObj) lineChartObj.destroy();
+      const ctx = document.getElementById("lineChart").getContext("2d");
+      lineChartObj = new Chart(ctx, {
+        type: "line",
         data: {
-          labels: donutZones,
+          labels,
           datasets: [{
-            data: donutData,
-            backgroundColor: donutBg,
-            borderColor: donutBorder,
-            borderWidth: 2,
+            label: "PRM Count",
+            data,
+            borderColor: "#c0392b",
+            backgroundColor: "rgba(192,57,43,0.08)",
+            borderWidth: 2.5,
+            pointRadius: 3,
+            pointBackgroundColor: "#c0392b",
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.25,
           }],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
           plugins: {
-            legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => "Plan Time: " + items[0].label,
+                label: (item) => "PRM: " + item.formattedValue,
+              },
+            },
+          },
+          scales: {
+            x: {
+              ticks: { font: { size: 11 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 40 },
+              title: { display: true, text: "Plan Time (Toronto)", font: { size: 12, weight: "bold" } },
+              grid: { color: "rgba(0,0,0,0.04)" },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1, font: { size: 11 } },
+              title: { display: true, text: "PRM Count", font: { size: 12, weight: "bold" } },
+              grid: { color: "rgba(0,0,0,0.06)" },
+            },
           },
         },
       });
+    }
+
+    /* ── Zone Bar Chart ──────────────────────── */
+    function renderZoneBar(zoneTotals) {
+      const activeZones = ZONES.filter(z => zoneTotals[z] > 0);
+      const labels = activeZones.length ? activeZones : ZONES;
+      const data = labels.map(z => zoneTotals[z] || 0);
+      const bgColors = labels.map(z => (ZONE_COLORS[z] || { bg: "#999" }).bg);
+      const borderColors = labels.map(z => (ZONE_COLORS[z] || { border: "#666" }).border);
+
+      if (zoneBarObj) zoneBarObj.destroy();
+      const ctx = document.getElementById("zoneBar").getContext("2d");
+      zoneBarObj = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "PRM",
+            data,
+            backgroundColor: bgColors,
+            borderColor: borderColors,
+            borderWidth: 1.5,
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: "y",
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: { stepSize: 1, font: { size: 11 } },
+              title: { display: true, text: "PRM Count", font: { size: 11 } },
+              grid: { color: "rgba(0,0,0,0.05)" },
+            },
+            y: {
+              ticks: { font: { size: 12, weight: "bold" } },
+              grid: { display: false },
+            },
+          },
+        },
+      });
+    }
+
+    /* ── Top 10 Table ────────────────────────── */
+    function renderTop10(top10) {
+      let html = "";
+      if (!top10.length) {
+        html = `<tr><td colspan="10" style="padding:16px;color:#888;text-align:center;">No pre-alerts found</td></tr>`;
+      } else {
+        for (let i = 0; i < top10.length; i++) {
+          const r = top10[i];
+          const typeCls = r.type === "ARR" ? "arr" : "dep";
+          const totCls = r.prm >= 10 ? "cnt-hi" : "cnt";
+          html += `<tr>
+            <td class="rank">${i + 1}</td>
+            <td class="flt">${esc(r.flight)}</td>
+            <td class="${typeCls}">${esc(r.type)}</td>
+            <td>${esc(r.planStr)}</td>
+            <td>${esc(r.estStr)}</td>
+            <td>${esc(r.gate)}</td>
+            <td>${esc(r.zone)}</td>
+            <td class="cnt">${r.wchr}</td>
+            <td class="cnt">${r.wchc}</td>
+            <td class="${totCls}">${r.prm}</td>
+          </tr>`;
+        }
+      }
+      document.getElementById("top10Body").innerHTML = html;
     }
 
     /* ── Filter handlers ─────────────────────── */
@@ -656,7 +608,6 @@
     function syncPills(containerId, activeVal) {
       const btns = document.getElementById(containerId).querySelectorAll(".pill");
       btns.forEach(b => {
-        // Match button text or value to active
         const btnVal = b.getAttribute("onclick").match(/'([^']+)'/)?.[1] || "";
         b.classList.toggle("active", btnVal === activeVal);
       });
@@ -701,7 +652,6 @@
 
         if (!data || !data.ok) { setLoginErr(data?.error || "Login failed."); return; }
 
-        // Check mgmt access
         if (!data.access || !data.access.mgmt) {
           setLoginErr("Access denied. Management role required.");
           return;
@@ -717,7 +667,6 @@
       }
     }
 
-    // Enter key triggers login
     document.getElementById("loginUser").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
     document.getElementById("loginPin").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
 
@@ -761,8 +710,7 @@
         allRows = data.rows || [];
 
         document.getElementById("loading").style.display = "none";
-        document.getElementById("chartRow").style.display = "grid";
-        document.getElementById("mainGrid").style.display = "grid";
+        document.getElementById("content").style.display = "block";
         document.getElementById("lastRefresh").textContent =
           "Updated: " + fmtTime(new Date().toISOString());
 
