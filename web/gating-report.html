@@ -10,7 +10,7 @@
 
     body {
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 10px;
+      font-size: 12px;
       color: #000;
       background: #f5f5f5;
       padding: 12px;
@@ -52,10 +52,10 @@
       margin-bottom: 6px;
     }
     .report-header h1 {
-      font-size: 16px; font-weight: bold; margin-bottom: 2px;
+      font-size: 18px; font-weight: bold; margin-bottom: 2px;
     }
     .report-header .meta {
-      font-size: 10px; color: #444;
+      font-size: 12px; color: #444;
     }
 
     /* ── Table ──────────────────────────────────────── */
@@ -63,12 +63,12 @@
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: 9.5px;
+      font-size: 11px;
     }
 
     th, td {
       border: 1px solid #999;
-      padding: 2px 3px;
+      padding: 3px 4px;
       vertical-align: middle;
       text-align: center;
       overflow: hidden;
@@ -80,7 +80,7 @@
     thead th {
       background: #e2e2e2;
       font-weight: bold;
-      font-size: 8.5px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
@@ -93,7 +93,7 @@
     th.alloc-hdr { background: #fff3cd; }
 
     /* Data rows */
-    tbody td { font-size: 9.5px; }
+    tbody td { font-size: 11px; }
 
     /* Arrival cells */
     td.arr { background: #f6fdf7; }
@@ -105,7 +105,7 @@
     td.blank { background: #fff; }
 
     /* Flight number bold */
-    .flt { font-weight: bold; font-size: 10px; }
+    .flt { font-weight: bold; font-size: 12px; }
 
     /* WCHR/WCHC numbers */
     .cnt { font-weight: bold; }
@@ -116,23 +116,22 @@
       white-space: normal;
       word-break: break-word;
       text-align: left;
-      font-size: 8.5px;
+      font-size: 10px;
     }
 
     /* Column widths (A4 landscape ~ 277mm usable ≈ 1050px at 96dpi)
-       Left:  WCHR(30) WCHC(30) Flight(58) Sched(42) Est(42) Origin(36) Gate(36) Comment(70) = 344
-       Center: Allocation(80)
-       Right: Flight(58) Sched(42) Est(42) Dest(36) Gate(36) Comment(70) WCHR(30) WCHC(30) = 344
-       Total target ≈ 768 (will stretch to 100% of page)
+       Left:  Comment WCHR WCHC Flight Sched Est Origin Gate
+       Center: Allocation
+       Right: Flight Sched Est Dest Gate WCHR WCHC Comment
     */
     col.c-wchr  { width: 3.8%; }
     col.c-wchc  { width: 3.8%; }
-    col.c-flt   { width: 7.0%; }
-    col.c-sched { width: 5.0%; }
-    col.c-est   { width: 5.0%; }
-    col.c-port  { width: 4.5%; }
-    col.c-gate  { width: 4.5%; }
-    col.c-cmt   { width: 8.8%; }
+    col.c-flt   { width: 7.2%; }
+    col.c-sched { width: 5.2%; }
+    col.c-est   { width: 5.2%; }
+    col.c-port  { width: 4.8%; }
+    col.c-gate  { width: 4.8%; }
+    col.c-cmt   { width: 7.0%; }
     col.c-alloc { width: 9.6%; }
 
     /* Loading overlay */
@@ -160,15 +159,17 @@
   <table id="tbl" style="display:none;">
     <colgroup>
       <!-- Left: Arrivals -->
+      <col class="c-cmt" />
       <col class="c-wchr" /><col class="c-wchc" />
       <col class="c-flt" /><col class="c-sched" /><col class="c-est" />
-      <col class="c-port" /><col class="c-gate" /><col class="c-cmt" />
+      <col class="c-port" /><col class="c-gate" />
       <!-- Center -->
       <col class="c-alloc" />
       <!-- Right: Departures -->
       <col class="c-flt" /><col class="c-sched" /><col class="c-est" />
-      <col class="c-port" /><col class="c-gate" /><col class="c-cmt" />
+      <col class="c-port" /><col class="c-gate" />
       <col class="c-wchr" /><col class="c-wchc" />
+      <col class="c-cmt" />
     </colgroup>
     <thead>
       <tr>
@@ -177,6 +178,7 @@
         <th class="dep-hdr" colspan="8">DEPARTURES</th>
       </tr>
       <tr>
+        <th class="arr-hdr">Comment</th>
         <th class="arr-hdr">WCHR</th>
         <th class="arr-hdr">WCHC</th>
         <th class="arr-hdr">Flight</th>
@@ -184,15 +186,14 @@
         <th class="arr-hdr">Est</th>
         <th class="arr-hdr">Origin</th>
         <th class="arr-hdr">Gate</th>
-        <th class="arr-hdr">Comment</th>
         <th class="dep-hdr">Flight</th>
         <th class="dep-hdr">Sched</th>
         <th class="dep-hdr">Est</th>
         <th class="dep-hdr">Dest</th>
         <th class="dep-hdr">Gate</th>
-        <th class="dep-hdr">Comment</th>
         <th class="dep-hdr">WCHR</th>
         <th class="dep-hdr">WCHC</th>
+        <th class="dep-hdr">Comment</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
@@ -296,6 +297,7 @@
 
           if (isArr) {
             html += `<tr>
+              <td class="arr cmt">${cmt}</td>
               <td class="arr ${wchrCls}">${esc(wchr)}</td>
               <td class="arr ${wchcCls}">${esc(wchc)}</td>
               <td class="arr flt">${esc(r.flight)}</td>
@@ -303,7 +305,6 @@
               <td class="arr">${esc(time)}</td>
               <td class="arr">${esc(r.origin)}</td>
               <td class="arr">${esc(r.gate)}</td>
-              <td class="arr cmt">${cmt}</td>
               <td class="alloc"></td>
               <td class="blank"></td>
               <td class="blank"></td>
@@ -330,9 +331,9 @@
               <td class="dep">${esc(time)}</td>
               <td class="dep">${esc(r.origin)}</td>
               <td class="dep">${esc(r.gate)}</td>
-              <td class="dep cmt">${cmt}</td>
               <td class="dep ${wchrCls}">${esc(wchr)}</td>
               <td class="dep ${wchcCls}">${esc(wchc)}</td>
+              <td class="dep cmt">${cmt}</td>
             </tr>`;
           }
         }
