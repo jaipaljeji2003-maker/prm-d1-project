@@ -1,0 +1,546 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PRM Pre-Alerts — Management</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      color: #111;
+      background: #f5f5f5;
+      padding: 10px 14px;
+    }
+
+    /* ── Toolbar ──────────────────────────────── */
+    .topbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      padding: 8px 10px; background: #fff; border-radius: 10px;
+      border: 1px solid #e1e1e1; margin-bottom: 10px;
+    }
+    .topbar button {
+      padding: 5px 14px; font-size: 13px; cursor: pointer;
+      border: 1px solid #ccc; border-radius: 6px; background: #fff;
+    }
+    .topbar button:hover { background: #eee; }
+    .topbar button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    .topbar button.primary:hover { background: #155bb5; }
+
+    .filters { display: flex; gap: 4px; align-items: center; }
+    .pill {
+      padding: 4px 12px; border-radius: 999px; border: 1px solid #ccc;
+      background: #fff; font-size: 12px; cursor: pointer;
+    }
+    .pill:hover { background: #f0f0f0; }
+    .pill.active { background: #111; color: #fff; border-color: #111; }
+
+    .filters label { font-size: 12px; color: #555; }
+    .filters select {
+      padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc;
+      font-size: 12px;
+    }
+
+    .searchWrap input {
+      padding: 5px 10px; border: 1px solid #ccc; border-radius: 6px;
+      font-size: 13px; width: 160px;
+    }
+
+    .meta { font-size: 11px; color: #888; margin-left: auto; white-space: nowrap; }
+
+    /* ── Error ────────────────────────────────── */
+    .err { color: #b00020; font-weight: bold; padding: 4px 10px; display: none; }
+    .err.show { display: block; }
+
+    /* ── KPI Summary ─────────────────────────── */
+    .summary {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .kpi {
+      background: #fff; border: 1px solid #e1e1e1; border-radius: 10px;
+      padding: 10px 16px; text-align: center; min-width: 120px;
+    }
+    .kpi .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi .value { font-size: 26px; font-weight: 700; margin-top: 2px; }
+    .kpi .value.wchr { color: #1a73e8; }
+    .kpi .value.wchc { color: #e67e22; }
+    .kpi .value.prm  { color: #c0392b; }
+    .kpi .value.flt  { color: #27ae60; }
+
+    /* ── Main Grid ───────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(380px, 2fr);
+      gap: 14px;
+    }
+    @media (max-width: 1000px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: #fff; border: 1px solid #e1e1e1; border-radius: 10px;
+      overflow: hidden;
+    }
+    .panel h3 {
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; padding: 8px 12px; background: #fafafa;
+      border-bottom: 1px solid #e1e1e1; color: #444;
+    }
+    .panel .tableWrap {
+      overflow: auto; max-height: 75vh;
+    }
+
+    /* ── Heatmap Table ───────────────────────── */
+    #heatmap {
+      width: 100%; border-collapse: collapse; font-size: 12px;
+    }
+    #heatmap th {
+      position: sticky; top: 0; z-index: 2;
+      background: #f7f7f7; font-size: 11px; text-transform: uppercase;
+      padding: 6px 4px; border-bottom: 2px solid #ddd;
+      white-space: nowrap;
+    }
+    #heatmap td {
+      text-align: center; padding: 5px 4px; border-bottom: 1px solid #eee;
+      font-weight: 600; font-size: 13px; min-width: 44px;
+    }
+    #heatmap .time-col {
+      font-weight: 700; text-align: left; padding-left: 8px;
+      white-space: nowrap; font-size: 12px; color: #333;
+    }
+    #heatmap .total-col { font-weight: 800; }
+
+    /* Heat classes */
+    .heat-0 { background: #fff; color: #ddd; }
+    .heat-1 { background: #d4edda; color: #155724; }
+    .heat-2 { background: #fff3cd; color: #856404; }
+    .heat-3 { background: #ffeaa7; color: #7c5e10; }
+    .heat-4 { background: #f8d7da; color: #721c24; }
+
+    /* ── Detail Table ────────────────────────── */
+    #detail {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    #detail th {
+      position: sticky; top: 0; z-index: 2;
+      background: #f7f7f7; font-size: 11px; text-transform: uppercase;
+      padding: 6px 6px; border-bottom: 2px solid #ddd;
+      white-space: nowrap; text-align: left;
+    }
+    #detail td {
+      padding: 5px 6px; border-bottom: 1px solid #f0f0f0;
+      white-space: nowrap;
+    }
+    #detail .flt { font-weight: 700; }
+    #detail .arr { color: #155724; }
+    #detail .dep { color: #1a4d8f; }
+    #detail .cnt { font-weight: 700; text-align: center; }
+    #detail .cnt-hi { font-weight: 700; text-align: center; color: #c00; }
+
+    /* ── Print ────────────────────────────────── */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .topbar { display: none !important; }
+      .panel { border: 1px solid #ccc; break-inside: avoid; }
+      .main-grid { grid-template-columns: 1fr 2fr; }
+    }
+
+    /* ── Loading ──────────────────────────────── */
+    #loading { text-align: center; padding: 40px; font-size: 14px; color: #666; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <button class="primary" onclick="manualRefresh()">Refresh</button>
+    <button onclick="window.print()">Print</button>
+    <button onclick="window.close()">Close</button>
+
+    <div class="filters">
+      <label>Bucket
+        <select id="bucketSize" onchange="onBucketChange()">
+          <option value="5">5 min</option>
+          <option value="10">10 min</option>
+          <option value="15" selected>15 min</option>
+          <option value="30">30 min</option>
+          <option value="60">60 min</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="filters" id="zonePills">
+      <button class="pill active" onclick="setZone('ALL')">All Zones</button>
+      <button class="pill" onclick="setZone('TB')">TB</button>
+      <button class="pill" onclick="setZone('Gates')">Gates</button>
+      <button class="pill" onclick="setZone('Pier A')">Pier A</button>
+      <button class="pill" onclick="setZone('T1')">T1</button>
+      <button class="pill" onclick="setZone('Unassigned')">Unasgn</button>
+    </div>
+
+    <div class="filters" id="typePills">
+      <button class="pill active" onclick="setType('ALL')">All</button>
+      <button class="pill" onclick="setType('ARR')">ARR</button>
+      <button class="pill" onclick="setType('DEP')">DEP</button>
+    </div>
+
+    <div class="searchWrap">
+      <input id="q" placeholder="Search flight..." oninput="onSearch()" />
+    </div>
+
+    <span class="meta" id="lastRefresh"></span>
+  </div>
+
+  <div id="err" class="err"></div>
+
+  <div class="summary" id="summary"></div>
+
+  <div id="loading">Loading flight data...</div>
+
+  <div class="main-grid" id="mainGrid" style="display:none;">
+    <div class="panel">
+      <h3>Demand Heatmap — PRM Load by Plan Time &amp; Zone</h3>
+      <div class="tableWrap">
+        <table id="heatmap">
+          <thead id="heatmapHead"></thead>
+          <tbody id="heatmapBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Pre-Alert Flights</h3>
+      <div class="tableWrap">
+        <table id="detail">
+          <thead>
+            <tr>
+              <th>Plan</th><th>Est</th><th>Flight</th>
+              <th>Type</th><th>Gate</th><th>Zone</th>
+              <th>WR</th><th>WC</th><th>Tot</th>
+            </tr>
+          </thead>
+          <tbody id="detailBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/config.js"></script>
+  <script>
+    /* ── Config ──────────────────────────────── */
+    const API_BASE = (window.PRM_CONFIG && window.PRM_CONFIG.API_BASE) || "";
+    const LS_TOKEN = "PRM_TOKEN";
+    const REFRESH_MS = 30000;
+    const ZONES = ["TB", "Gates", "Pier A", "T1", "Unassigned"];
+
+    /* ── State ───────────────────────────────── */
+    let allRows = [];
+    let filterType = "ALL";
+    let filterZone = "ALL";
+    let bucketMin = 15;
+    let searchQ = "";
+    let pollTimer = null;
+
+    /* ── Auth ─────────────────────────────────── */
+    function getToken() { return localStorage.getItem(LS_TOKEN) || ""; }
+
+    /* ── Toronto time helpers ─────────────────── */
+    const TZ = "America/Toronto";
+    const timeFmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false,
+    });
+
+    function fmtTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? String(iso) : timeFmt.format(d);
+    }
+
+    function toTorontoHM(d) {
+      // Returns { h, m } in Toronto local
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: TZ, hour: "numeric", minute: "numeric", hour12: false,
+      }).formatToParts(d);
+      let h = 0, m = 0;
+      for (const p of parts) {
+        if (p.type === "hour") h = parseInt(p.value, 10);
+        if (p.type === "minute") m = parseInt(p.value, 10);
+      }
+      // Handle midnight: Intl may return 24 as 0
+      return { h, m };
+    }
+
+    function esc(s) {
+      return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    /* ── Plan time calculation ────────────────── */
+    function computePlanTime(row) {
+      const est = new Date(row.timeEst);
+      if (isNaN(est.getTime())) return null;
+      if (row.type === "DEP") {
+        const dest = (row.origin || "").trim().toUpperCase();
+        const offsetMin = dest.charAt(0) === "Y" ? 60 : 90;
+        return new Date(est.getTime() - offsetMin * 60000);
+      }
+      return est;
+    }
+
+    /* ── Bucketing ────────────────────────────── */
+    function getBucketKey(planDate) {
+      const { h, m } = toTorontoHM(planDate);
+      const totalMin = h * 60 + m;
+      const bucketStart = Math.floor(totalMin / bucketMin) * bucketMin;
+      const bh = Math.floor(bucketStart / 60) % 24;
+      const bm = bucketStart % 60;
+      return String(bh).padStart(2, "0") + ":" + String(bm).padStart(2, "0");
+    }
+
+    function generateBucketKeys() {
+      // Ops day: 03:00 → 02:59, in steps of bucketMin
+      const keys = [];
+      for (let offset = 0; offset < 1440; offset += bucketMin) {
+        let totalMin = 180 + offset; // 03:00 = 180
+        if (totalMin >= 1440) totalMin -= 1440;
+        const hh = String(Math.floor(totalMin / 60)).padStart(2, "0");
+        const mm = String(totalMin % 60).padStart(2, "0");
+        keys.push(hh + ":" + mm);
+      }
+      return keys;
+    }
+
+    /* ── Data processing ─────────────────────── */
+    function processData() {
+      // Step 1: Parse and filter to PRM > 0
+      const enriched = [];
+      let totalWCHR = 0, totalWCHC = 0;
+
+      for (const r of allRows) {
+        const wchr = parseInt(r.wchr, 10) || 0;
+        const wchc = parseInt(r.wchc, 10) || 0;
+        const prm = wchr + wchc;
+        if (prm <= 0) continue;
+
+        const planTime = computePlanTime(r);
+        if (!planTime) continue;
+
+        enriched.push({
+          planTime,
+          planStr: fmtTime(planTime.toISOString()),
+          estStr: fmtTime(r.timeEst),
+          flight: r.flight || "",
+          type: r.type || "",
+          gate: r.gate || "",
+          zone: r.zone || "Unassigned",
+          wchr, wchc, prm,
+          bucketKey: getBucketKey(planTime),
+        });
+      }
+
+      // Step 2: Apply filters
+      let filtered = enriched;
+
+      if (filterType !== "ALL") {
+        filtered = filtered.filter(r => r.type === filterType);
+      }
+      if (filterZone !== "ALL") {
+        filtered = filtered.filter(r => r.zone === filterZone);
+      }
+      if (searchQ) {
+        const q = searchQ.toUpperCase().replace(/\s+/g, "");
+        filtered = filtered.filter(r => r.flight.toUpperCase().replace(/\s+/g, "").includes(q));
+      }
+
+      // Step 3: KPIs
+      for (const r of filtered) {
+        totalWCHR += r.wchr;
+        totalWCHC += r.wchc;
+      }
+
+      // Step 4: Heatmap aggregation
+      // heat: bucketKey → zone → count
+      const heat = new Map();
+      for (const r of filtered) {
+        if (!heat.has(r.bucketKey)) heat.set(r.bucketKey, new Map());
+        const byZone = heat.get(r.bucketKey);
+        byZone.set(r.zone, (byZone.get(r.zone) || 0) + r.prm);
+      }
+
+      // Step 5: Sort detail by plan time
+      filtered.sort((a, b) => a.planTime.getTime() - b.planTime.getTime());
+
+      return {
+        kpi: { totalWCHR, totalWCHC, totalPRM: totalWCHR + totalWCHC, flights: filtered.length },
+        heat,
+        detail: filtered,
+      };
+    }
+
+    /* ── Heat class ──────────────────────────── */
+    function heatClass(n) {
+      if (n <= 0) return "heat-0";
+      if (n <= 3) return "heat-1";
+      if (n <= 6) return "heat-2";
+      if (n <= 10) return "heat-3";
+      return "heat-4";
+    }
+
+    /* ── Render ──────────────────────────────── */
+    function render() {
+      const { kpi, heat, detail } = processData();
+
+      // KPIs
+      document.getElementById("summary").innerHTML = `
+        <div class="kpi"><div class="label">WCHR</div><div class="value wchr">${kpi.totalWCHR}</div></div>
+        <div class="kpi"><div class="label">WCHC</div><div class="value wchc">${kpi.totalWCHC}</div></div>
+        <div class="kpi"><div class="label">Total PRM</div><div class="value prm">${kpi.totalPRM}</div></div>
+        <div class="kpi"><div class="label">Flights</div><div class="value flt">${kpi.flights}</div></div>
+      `;
+
+      // Determine which zone columns to show
+      const zones = filterZone === "ALL" ? ZONES : [filterZone];
+
+      // Heatmap header
+      let headHtml = "<tr><th>Time</th>";
+      for (const z of zones) headHtml += `<th>${esc(z)}</th>`;
+      headHtml += "<th>Total</th></tr>";
+      document.getElementById("heatmapHead").innerHTML = headHtml;
+
+      // Heatmap body — only buckets with data
+      const bucketKeys = generateBucketKeys();
+      let bodyHtml = "";
+      for (const bk of bucketKeys) {
+        const byZone = heat.get(bk);
+        if (!byZone) continue; // skip empty buckets
+
+        let rowTotal = 0;
+        let cells = "";
+        for (const z of zones) {
+          const v = byZone.get(z) || 0;
+          rowTotal += v;
+          cells += `<td class="${heatClass(v)}">${v || ""}</td>`;
+        }
+        bodyHtml += `<tr>
+          <td class="time-col">${esc(bk)}</td>
+          ${cells}
+          <td class="total-col ${heatClass(rowTotal)}">${rowTotal}</td>
+        </tr>`;
+      }
+      if (!bodyHtml) {
+        bodyHtml = `<tr><td colspan="${zones.length + 2}" style="padding:20px;color:#888;">No pre-alerts found</td></tr>`;
+      }
+      document.getElementById("heatmapBody").innerHTML = bodyHtml;
+
+      // Detail table
+      let detHtml = "";
+      for (const r of detail) {
+        const typeCls = r.type === "ARR" ? "arr" : "dep";
+        const wchrCls = r.wchr >= 10 ? "cnt-hi" : "cnt";
+        const wchcCls = r.wchc >= 10 ? "cnt-hi" : "cnt";
+        const totCls = r.prm >= 10 ? "cnt-hi" : "cnt";
+        detHtml += `<tr>
+          <td>${esc(r.planStr)}</td>
+          <td>${esc(r.estStr)}</td>
+          <td class="flt">${esc(r.flight)}</td>
+          <td class="${typeCls}">${esc(r.type)}</td>
+          <td>${esc(r.gate)}</td>
+          <td>${esc(r.zone)}</td>
+          <td class="${wchrCls}">${r.wchr}</td>
+          <td class="${wchcCls}">${r.wchc}</td>
+          <td class="${totCls}">${r.prm}</td>
+        </tr>`;
+      }
+      if (!detHtml) {
+        detHtml = `<tr><td colspan="9" style="padding:20px;color:#888;">No pre-alerts found</td></tr>`;
+      }
+      document.getElementById("detailBody").innerHTML = detHtml;
+    }
+
+    /* ── Filter handlers ─────────────────────── */
+    function setType(t) {
+      filterType = t;
+      syncPills("typePills", t);
+      render();
+    }
+
+    function setZone(z) {
+      filterZone = z;
+      syncPills("zonePills", z);
+      render();
+    }
+
+    function syncPills(containerId, activeVal) {
+      const btns = document.getElementById(containerId).querySelectorAll(".pill");
+      btns.forEach(b => {
+        // Match button text or value to active
+        const btnVal = b.getAttribute("onclick").match(/'([^']+)'/)?.[1] || "";
+        b.classList.toggle("active", btnVal === activeVal);
+      });
+    }
+
+    function onBucketChange() {
+      bucketMin = parseInt(document.getElementById("bucketSize").value, 10) || 15;
+      render();
+    }
+
+    function onSearch() {
+      searchQ = document.getElementById("q").value.trim();
+      render();
+    }
+
+    /* ── Data loading ────────────────────────── */
+    async function loadData() {
+      const token = getToken();
+      if (!token) {
+        document.getElementById("loading").textContent = "Not logged in. Please login via the Dispatch page first.";
+        return;
+      }
+
+      try {
+        const url = new URL(API_BASE + "/dispatch/rows");
+        url.searchParams.set("from", "03:00");
+        url.searchParams.set("opsDay", "current");
+
+        const res = await fetch(url.toString(), {
+          headers: { "authorization": "Bearer " + token },
+        });
+        const data = await res.json();
+
+        if (!data || !data.ok) {
+          showErr(data?.error || "Failed to load data.");
+          return;
+        }
+
+        hideErr();
+        allRows = data.rows || [];
+
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("mainGrid").style.display = "grid";
+        document.getElementById("lastRefresh").textContent =
+          "Updated: " + fmtTime(new Date().toISOString());
+
+        render();
+      } catch (e) {
+        showErr("Error: " + (e.message || e));
+      }
+    }
+
+    function showErr(msg) {
+      const el = document.getElementById("err");
+      el.textContent = msg; el.classList.add("show");
+    }
+    function hideErr() {
+      const el = document.getElementById("err");
+      el.textContent = ""; el.classList.remove("show");
+    }
+
+    function manualRefresh() { loadData(); }
+
+    /* ── Init ─────────────────────────────────── */
+    loadData();
+    pollTimer = setInterval(loadData, REFRESH_MS);
+  </script>
+</body>
+</html>
