@@ -75,9 +75,9 @@ const WATCH_AIRLINES = new Set([
 ]);
 
 const ROLE_ACCESS = {
-  Dispatch: { dispatch: true,  lead: false },
-  Lead:     { dispatch: false, lead: true  },
-  Mgmt:     { dispatch: true,  lead: true  },
+  Dispatch: { dispatch: true,  lead: false, mgmt: false },
+  Lead:     { dispatch: false, lead: true,  mgmt: false },
+  Mgmt:     { dispatch: true,  lead: true,  mgmt: true  },
 };
 
 // In-memory write-through patch (best-effort, same-isolate only)

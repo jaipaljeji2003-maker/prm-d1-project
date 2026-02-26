@@ -223,6 +223,7 @@
         <button id="btn" onclick="login()">Login</button>
         <button onclick="go('dispatch')">Dispatch</button>
         <button onclick="go('lead')">Lead</button>
+        <button onclick="go('mgmt')">Mgmt Pre-Alerts</button>
       </div>
 
       <div id="msg" class="hint"></div>
@@ -255,6 +256,7 @@
       if (!t) { setErr("Login first."); return; }
       let page = "/lead.html";
       if (app === "dispatch") page = "/dispatch.html";
+      if (app === "mgmt") page = "/prealert.html";
       window.location.href = page;
     }
 
