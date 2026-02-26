@@ -532,14 +532,16 @@ async function fetchFIDSData(env) {
   const Q = "?withLeg=true&direction=Both&withCancelled=true&withCodeshared=false&withCargo=false&withPrivate=false&withLocation=false";
   const BASE = "https://aerodatabox.p.rapidapi.com/flights/airports/iata/YYZ";
 
+  // AeroDataBox max window = 12 hours.  Split 03:00→02:59 into 3 chunks:
+  //   03:00→15:00 (12h)  |  15:00→02:59 (11h59m)
   const windows = [
-    `${BASE}/${d0}T03:00/${d0}T16:00${Q}`,
-    `${BASE}/${d0}T16:00/${d1}T02:59${Q}`,
+    `${BASE}/${d0}T03:00/${d0}T15:00${Q}`,
+    `${BASE}/${d0}T15:00/${d1}T02:59${Q}`,
   ];
   // After 12:00 noon or before 03:00: also preload next ops-day
   if (p.hour >= 12 || p.hour < 3) {
-    windows.push(`${BASE}/${d1}T03:00/${d1}T16:00${Q}`);
-    windows.push(`${BASE}/${d1}T16:00/${d2}T02:59${Q}`);
+    windows.push(`${BASE}/${d1}T03:00/${d1}T15:00${Q}`);
+    windows.push(`${BASE}/${d1}T15:00/${d2}T02:59${Q}`);
   }
 
   let rawArr = [], rawDep = [];
