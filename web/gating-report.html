@@ -1,0 +1,353 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daily Gating Report</title>
+  <style>
+    /* ── Reset ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 10px;
+      color: #000;
+      background: #f5f5f5;
+      padding: 12px;
+    }
+
+    /* ── Print: A4 landscape ───────────────────────── */
+    @page {
+      size: A4 landscape;
+      margin: 8mm 6mm;
+    }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .no-print { display: none !important; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; }
+      thead { display: table-header-group; }
+    }
+
+    /* ── Toolbar (screen only) ─────────────────────── */
+    .toolbar {
+      display: flex; gap: 10px; align-items: center;
+      margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .toolbar button {
+      padding: 6px 16px; font-size: 13px; cursor: pointer;
+      border: 1px solid #888; border-radius: 4px; background: #fff;
+    }
+    .toolbar button:hover { background: #e8e8e8; }
+    .toolbar button.primary {
+      background: #1a73e8; color: #fff; border-color: #1a73e8;
+    }
+    .toolbar button.primary:hover { background: #155bb5; }
+    .toolbar .status { font-size: 12px; color: #555; }
+
+    /* ── Report header ─────────────────────────────── */
+    .report-header {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .report-header h1 {
+      font-size: 16px; font-weight: bold; margin-bottom: 2px;
+    }
+    .report-header .meta {
+      font-size: 10px; color: #444;
+    }
+
+    /* ── Table ──────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 9.5px;
+    }
+
+    th, td {
+      border: 1px solid #999;
+      padding: 2px 3px;
+      vertical-align: middle;
+      text-align: center;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    /* Header row */
+    thead th {
+      background: #e2e2e2;
+      font-weight: bold;
+      font-size: 8.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    /* Arrival header */
+    th.arr-hdr { background: #d4edda; }
+    /* Departure header */
+    th.dep-hdr { background: #cce5ff; }
+    /* Center allocation header */
+    th.alloc-hdr { background: #fff3cd; }
+
+    /* Data rows */
+    tbody td { font-size: 9.5px; }
+
+    /* Arrival cells */
+    td.arr { background: #f6fdf7; }
+    /* Departure cells */
+    td.dep { background: #f0f7ff; }
+    /* Allocation column */
+    td.alloc { background: #fffde7; }
+    /* Empty half (writable space) */
+    td.blank { background: #fff; }
+
+    /* Flight number bold */
+    .flt { font-weight: bold; font-size: 10px; }
+
+    /* WCHR/WCHC numbers */
+    .cnt { font-weight: bold; }
+    .cnt-hi { font-weight: bold; color: #c00; }
+
+    /* Comment cell — allow wrapping */
+    td.cmt {
+      white-space: normal;
+      word-break: break-word;
+      text-align: left;
+      font-size: 8.5px;
+    }
+
+    /* Column widths (A4 landscape ~ 277mm usable ≈ 1050px at 96dpi)
+       Left:  WCHR(30) WCHC(30) Flight(58) Sched(42) Est(42) Origin(36) Gate(36) Comment(70) = 344
+       Center: Allocation(80)
+       Right: Flight(58) Sched(42) Est(42) Dest(36) Gate(36) Comment(70) WCHR(30) WCHC(30) = 344
+       Total target ≈ 768 (will stretch to 100% of page)
+    */
+    col.c-wchr  { width: 3.8%; }
+    col.c-wchc  { width: 3.8%; }
+    col.c-flt   { width: 7.0%; }
+    col.c-sched { width: 5.0%; }
+    col.c-est   { width: 5.0%; }
+    col.c-port  { width: 4.5%; }
+    col.c-gate  { width: 4.5%; }
+    col.c-cmt   { width: 8.8%; }
+    col.c-alloc { width: 9.6%; }
+
+    /* Loading overlay */
+    #loading {
+      text-align: center; padding: 40px; font-size: 14px; color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button class="primary" onclick="window.print()">Print / Download PDF</button>
+    <button onclick="window.close()">Close</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="report-header">
+    <h1>Daily Gating Report</h1>
+    <div class="meta">
+      <span id="metaDate"></span> &nbsp;|&nbsp; Generated at: <span id="metaTime"></span>
+    </div>
+  </div>
+
+  <div id="loading">Loading flight data...</div>
+
+  <table id="tbl" style="display:none;">
+    <colgroup>
+      <!-- Left: Arrivals -->
+      <col class="c-wchr" /><col class="c-wchc" />
+      <col class="c-flt" /><col class="c-sched" /><col class="c-est" />
+      <col class="c-port" /><col class="c-gate" /><col class="c-cmt" />
+      <!-- Center -->
+      <col class="c-alloc" />
+      <!-- Right: Departures -->
+      <col class="c-flt" /><col class="c-sched" /><col class="c-est" />
+      <col class="c-port" /><col class="c-gate" /><col class="c-cmt" />
+      <col class="c-wchr" /><col class="c-wchc" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="arr-hdr" colspan="8">ARRIVALS</th>
+        <th class="alloc-hdr" rowspan="2">ALLOCATION</th>
+        <th class="dep-hdr" colspan="8">DEPARTURES</th>
+      </tr>
+      <tr>
+        <th class="arr-hdr">WCHR</th>
+        <th class="arr-hdr">WCHC</th>
+        <th class="arr-hdr">Flight</th>
+        <th class="arr-hdr">Sched</th>
+        <th class="arr-hdr">Est</th>
+        <th class="arr-hdr">Origin</th>
+        <th class="arr-hdr">Gate</th>
+        <th class="arr-hdr">Comment</th>
+        <th class="dep-hdr">Flight</th>
+        <th class="dep-hdr">Sched</th>
+        <th class="dep-hdr">Est</th>
+        <th class="dep-hdr">Dest</th>
+        <th class="dep-hdr">Gate</th>
+        <th class="dep-hdr">Comment</th>
+        <th class="dep-hdr">WCHR</th>
+        <th class="dep-hdr">WCHC</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script src="/config.js"></script>
+  <script>
+    const API_BASE = (window.PRM_CONFIG && window.PRM_CONFIG.API_BASE) || "";
+    const LS_TOKEN = "PRM_TOKEN";
+
+    function getToken() { return localStorage.getItem(LS_TOKEN) || ""; }
+
+    function fmtTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      // Toronto local time
+      const fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Toronto",
+        hour: "2-digit", minute: "2-digit", hour12: false,
+      });
+      return fmt.format(d);
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      const fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Toronto",
+        year: "numeric", month: "2-digit", day: "2-digit",
+      });
+      return fmt.format(d);
+    }
+
+    function esc(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function wchrLabel(v) {
+      const n = parseInt(v, 10);
+      if (!n && n !== 0) return String(v || "");
+      return n > 0 ? String(n) : "";
+    }
+
+    function wchrClass(v) {
+      const n = parseInt(v, 10);
+      if (n >= 10) return "cnt-hi";
+      if (n > 0)  return "cnt";
+      return "";
+    }
+
+    async function loadAndRender() {
+      const token = getToken();
+      if (!token) {
+        document.getElementById("loading").textContent = "Not logged in. Please login via the Dispatch page first.";
+        return;
+      }
+
+      try {
+        // Fetch full ops day (from 03:00 = start of day, no lookback cap)
+        const url = new URL(API_BASE + "/dispatch/rows");
+        url.searchParams.set("from", "03:00");
+        url.searchParams.set("opsDay", "current");
+
+        const res = await fetch(url.toString(), {
+          headers: { "authorization": "Bearer " + token },
+        });
+        const data = await res.json();
+
+        if (!data || !data.ok) {
+          document.getElementById("loading").textContent = data?.error || "Failed to load data.";
+          return;
+        }
+
+        const rows = (data.rows || []).sort(
+          (a, b) => new Date(a.timeEst).getTime() - new Date(b.timeEst).getTime()
+        );
+
+        // Set report metadata
+        const now = new Date();
+        document.getElementById("metaTime").textContent = fmtTime(now.toISOString());
+        document.getElementById("metaDate").textContent = fmtDate(now.toISOString());
+
+        // Build table rows
+        const tbody = document.getElementById("tbody");
+        let html = "";
+
+        for (const r of rows) {
+          const isArr = (r.type || "").toUpperCase() === "ARR";
+          const isDep = (r.type || "").toUpperCase() === "DEP";
+          const wchr = wchrLabel(r.wchr);
+          const wchc = wchrLabel(r.wchc);
+          const wchrCls = wchrClass(r.wchr);
+          const wchcCls = wchrClass(r.wchc);
+          const time = fmtTime(r.timeEst);
+          const sched = fmtTime(r.sched);
+          const cmt = esc(r.comment || "");
+
+          if (isArr) {
+            html += `<tr>
+              <td class="arr ${wchrCls}">${esc(wchr)}</td>
+              <td class="arr ${wchcCls}">${esc(wchc)}</td>
+              <td class="arr flt">${esc(r.flight)}</td>
+              <td class="arr">${esc(sched)}</td>
+              <td class="arr">${esc(time)}</td>
+              <td class="arr">${esc(r.origin)}</td>
+              <td class="arr">${esc(r.gate)}</td>
+              <td class="arr cmt">${cmt}</td>
+              <td class="alloc"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+            </tr>`;
+          } else {
+            html += `<tr>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="blank"></td>
+              <td class="alloc"></td>
+              <td class="dep flt">${esc(r.flight)}</td>
+              <td class="dep">${esc(sched)}</td>
+              <td class="dep">${esc(time)}</td>
+              <td class="dep">${esc(r.origin)}</td>
+              <td class="dep">${esc(r.gate)}</td>
+              <td class="dep cmt">${cmt}</td>
+              <td class="dep ${wchrCls}">${esc(wchr)}</td>
+              <td class="dep ${wchcCls}">${esc(wchc)}</td>
+            </tr>`;
+          }
+        }
+
+        tbody.innerHTML = html;
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("tbl").style.display = "table";
+        document.getElementById("status").textContent = `${rows.length} flights loaded`;
+
+      } catch (e) {
+        document.getElementById("loading").textContent = "Error: " + (e.message || e);
+      }
+    }
+
+    loadAndRender();
+  </script>
+</body>
+</html>
