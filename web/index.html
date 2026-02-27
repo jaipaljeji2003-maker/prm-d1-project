@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PRM Login</title>
+  <title>WINGS Login</title>
   <link rel="stylesheet" href="/style.css" />
 
   <!-- Login-page-only theme (won't affect other pages) -->
@@ -20,11 +20,13 @@
       --accent2:#00D4FF;
       --danger:#FF4D6D;
       --ok:#2DE2A6;
-      --radius:18px;
-      --radius2:12px;
-      --shadow: 0 18px 55px rgba(0,0,0,.55);
+      --radius:22px;
+      --radius2:14px;
+      --shadow: 0 24px 64px rgba(0,0,0,.6);
       --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     }
+
+    *{ box-sizing: border-box; }
 
     body{
       margin:0;
@@ -35,108 +37,218 @@
       align-items:center;
       justify-content:center;
       padding: 22px;
+      overflow: hidden;
       background:
-        radial-gradient(1200px 700px at 15% 15%, rgba(124,92,255,.25), transparent 60%),
-        radial-gradient(900px 600px at 85% 25%, rgba(0,212,255,.18), transparent 55%),
+        radial-gradient(1200px 700px at 15% 15%, rgba(124,92,255,.22), transparent 60%),
+        radial-gradient(900px 600px at 85% 25%, rgba(0,212,255,.16), transparent 55%),
         linear-gradient(180deg, var(--bg0), var(--bg1));
     }
 
+    /* ── Animated background blobs ──────────── */
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: .35;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 600px; height: 600px;
+      top: -200px; left: -100px;
+      background: var(--accent);
+      animation: blobFloat 18s ease-in-out infinite alternate;
+    }
+    body::after {
+      width: 500px; height: 500px;
+      bottom: -150px; right: -80px;
+      background: var(--accent2);
+      animation: blobFloat 22s ease-in-out infinite alternate-reverse;
+    }
+    @keyframes blobFloat {
+      0%   { transform: translate(0, 0) scale(1); }
+      50%  { transform: translate(60px, 40px) scale(1.1); }
+      100% { transform: translate(-30px, 80px) scale(0.95); }
+    }
+
+    /* ── Card ───────────────────────────────── */
     .card{
       width: min(520px, 100%);
-      background: linear-gradient(180deg, var(--card), rgba(15,22,48,.55));
-      border:1px solid rgba(29,42,85,.75);
+      background: linear-gradient(170deg, rgba(15,22,48,.85), rgba(15,22,48,.55));
+      border:1px solid rgba(29,42,85,.7);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 18px 18px 16px;
+      padding: 28px 26px 22px;
       position: relative;
       overflow:hidden;
+      z-index: 1;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
     }
     .card::before{
       content:"";
       position:absolute;
       inset:-2px;
       background:
-        radial-gradient(600px 300px at 20% 0%, rgba(124,92,255,.18), transparent 55%),
-        radial-gradient(600px 300px at 80% 20%, rgba(0,212,255,.12), transparent 50%);
+        radial-gradient(500px 250px at 20% 0%, rgba(124,92,255,.15), transparent 50%),
+        radial-gradient(500px 250px at 80% 20%, rgba(0,212,255,.10), transparent 45%);
       pointer-events:none;
       filter: blur(1px);
     }
-
-    .content{ position:relative; display:flex; flex-direction:column; gap: 12px; }
-
-    .brand{
-      display:flex; align-items:center; gap:12px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid rgba(29,42,85,.55);
+    .card:hover::before{
+      animation: cardGlow 3s ease-in-out infinite alternate;
     }
-    .logo{
-      width:42px; height:42px; border-radius: 14px;
-      background:
-        radial-gradient(18px 18px at 30% 30%, rgba(255,255,255,.35), transparent 60%),
-        linear-gradient(135deg, var(--accent), var(--accent2));
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow: 0 10px 30px rgba(124,92,255,.25);
+    @keyframes cardGlow {
+      0%   { opacity:.8; }
+      100% { opacity:1; }
+    }
+
+    .content{ position:relative; display:flex; flex-direction:column; gap: 16px; }
+
+    /* ── Brand / Logo ──────────────────────── */
+    .brand{
+      display:flex; align-items:center; gap:16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(29,42,85,.45);
+    }
+    .logo-wrap{
+      position: relative;
+      width: 56px; height: 56px;
       flex: 0 0 auto;
     }
-    .brand h3{
-      margin:0;
-      font-size: 18px;
-      letter-spacing: .2px;
-      line-height:1.1;
+    .logo-wrap svg{
+      width: 56px; height: 56px;
+      filter: drop-shadow(0 6px 20px rgba(124,92,255,.35));
     }
-    .motto{
-      margin-top: 4px;
-      font-size: 12.5px;
+    .brand-text h1{
+      margin: 0;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .brand-sub{
+      font-size: 11.5px;
       color: var(--muted);
+      letter-spacing: .5px;
+      margin-top: 4px;
     }
 
-    .quoteCard{
-      padding: 12px 12px 10px;
+    /* ── Acronym breakdown ─────────────────── */
+    .acronym{
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 12px 14px;
       border-radius: var(--radius2);
-      background: rgba(7,10,18,.30);
-      border:1px solid rgba(29,42,85,.65);
+      background: rgba(7,10,18,.35);
+      border: 1px solid rgba(29,42,85,.5);
+    }
+    .acronym-line{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      opacity: 0;
+      animation: fadeSlide .5s ease forwards;
+    }
+    .acronym-line:nth-child(1){ animation-delay: .15s; }
+    .acronym-line:nth-child(2){ animation-delay: .3s; }
+    .acronym-line:nth-child(3){ animation-delay: .45s; }
+    .acronym-line:nth-child(4){ animation-delay: .6s; }
+    .acronym-line:nth-child(5){ animation-delay: .75s; }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .acronym-letter{
+      font-weight: 800;
+      font-size: 16px;
+      width: 22px;
+      text-align: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .acronym-word{
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .acronym-loc{
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted2);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(29,42,85,.35);
+    }
+
+    /* ── Quote card ─────────────────────────── */
+    .quoteCard{
+      padding: 10px 12px 8px;
+      border-radius: var(--radius2);
+      background: rgba(7,10,18,.25);
+      border:1px solid rgba(29,42,85,.5);
       display:flex;
       flex-direction:column;
-      gap: 8px;
+      gap: 6px;
     }
     .quoteTop{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
     .chip{
-      font-size: 12px;
+      font-size: 11px;
       color: var(--muted);
-      padding: 6px 10px;
+      padding: 4px 10px;
       border:1px solid rgba(29,42,85,.85);
       border-radius: 999px;
       background: rgba(7,10,18,.25);
       user-select:none;
     }
-    .date{ font-size: 12px; color: var(--muted2); }
+    .date{ font-size: 11px; color: var(--muted2); }
     .quote{
-      font-size: 15.5px;
-      line-height: 1.35;
+      font-size: 14px;
+      line-height: 1.4;
+      color: var(--muted);
     }
     .quote small{
       display:block;
-      margin-top: 6px;
+      margin-top: 4px;
       color: var(--muted2);
-      font-size: 12px;
+      font-size: 11px;
     }
 
+    /* ── Form fields ───────────────────────── */
+    .form-section{
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
     .field{ display:flex; flex-direction:column; gap:6px; }
-    label{ font-size: 12px; color: var(--muted); }
+    label{ font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .3px; }
 
     input{
       width:100%;
-      padding: 12px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(29,42,85,.85);
-      background: rgba(7,10,18,.28);
+      padding: 13px 14px;
+      border-radius: var(--radius2);
+      border: 1px solid rgba(29,42,85,.8);
+      background: rgba(7,10,18,.35);
       color: var(--text);
+      font-size: 14px;
       outline:none;
+      transition: border-color .2s, box-shadow .2s;
     }
     input:focus{
-      border-color: rgba(124,92,255,.85);
-      box-shadow: 0 0 0 4px rgba(124,92,255,.18);
+      border-color: rgba(124,92,255,.8);
+      box-shadow: 0 0 0 4px rgba(124,92,255,.15);
     }
+    input::placeholder{ color: var(--muted2); opacity: .6; }
 
     .pwWrap{ position:relative; }
     .togglePw{
@@ -144,94 +256,153 @@
       right: 10px;
       top: 50%;
       transform: translateY(-50%);
-      font-size: 12px;
+      font-size: 11px;
       color: var(--muted);
-      padding: 6px 10px;
+      padding: 5px 10px;
       border-radius: 999px;
       border:1px solid rgba(29,42,85,.85);
-      background: rgba(7,10,18,.25);
+      background: rgba(7,10,18,.3);
       cursor:pointer;
       user-select:none;
+      transition: background .2s;
     }
+    .togglePw:hover{ background: rgba(29,42,85,.5); }
 
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top: 6px;
+    /* ── Buttons ────────────────────────────── */
+    .btn-row{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
     }
     button{
-      padding: 11px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(14,20,44,.45);
+      padding: 12px 14px;
+      border-radius: var(--radius2);
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(14,20,44,.5);
       color: var(--text);
       cursor:pointer;
-      font-weight: 650;
+      font-weight: 600;
+      font-size: 13px;
+      transition: background .2s, transform .1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
+    button:hover{ background: rgba(29,42,85,.5); transform: translateY(-1px); }
+    button:active{ transform: translateY(0); }
+
     #btn{
-      flex: 1 1 160px;
+      grid-column: 1 / -1;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       color: #081022;
-      border: 1px solid rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.15);
+      letter-spacing: .5px;
     }
-    button:hover{ filter: brightness(1.05); }
-    button:disabled{ opacity:.65; cursor:not-allowed; filter:saturate(.6); }
+    #btn:hover{ filter: brightness(1.08); }
+    #btn:disabled{ opacity:.6; cursor:not-allowed; filter:saturate(.5); transform:none; }
 
-    .hint{ color: var(--muted2); font-size: 12px; line-height: 1.45; }
-    .err{ color: #FFD0D9; background: rgba(255,77,109,.10); border:1px solid rgba(255,77,109,.35); padding: 10px 12px; border-radius: 12px; }
-    .ok{ color: #BFFBE8; background: rgba(45,226,166,.10); border:1px solid rgba(45,226,166,.30); padding: 10px 12px; border-radius: 12px; }
+    .btn-icon{ font-size: 15px; }
 
-    /* If your existing style.css sets .err/.ok/.hint differently, this makes sure empty boxes don't take space */
+    /* ── Status ─────────────────────────────── */
+    .hint{ color: var(--muted2); font-size: 11px; line-height: 1.45; text-align:center; }
+    .err{ color: #FFD0D9; background: rgba(255,77,109,.08); border:1px solid rgba(255,77,109,.3); padding: 10px 12px; border-radius: var(--radius2); font-size: 13px; }
+    .ok{ color: #BFFBE8; background: rgba(45,226,166,.08); border:1px solid rgba(45,226,166,.25); padding: 10px 12px; border-radius: var(--radius2); font-size: 13px; }
+    .msg-info{ color: var(--muted2); font-size: 12px; text-align:center; }
+
     #msg:empty, #err:empty, #ok:empty { display:none; }
+
+    /* ── Motto ──────────────────────────────── */
+    .motto{
+      text-align:center;
+      font-size: 11.5px;
+      color: var(--muted2);
+      letter-spacing: .3px;
+      padding-top: 4px;
+    }
   </style>
 </head>
 
 <body>
   <div class="card">
     <div class="content">
+
+      <!-- Brand Header -->
       <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
-        <div>
-          <h3>PRM Ops Portal</h3>
-          <div class="motto">Fast hands. Calm mind. Clean data.</div>
+        <div class="logo-wrap">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#7C5CFF"/>
+                <stop offset="100%" stop-color="#00D4FF"/>
+              </linearGradient>
+            </defs>
+            <!-- Stylized wing shape -->
+            <path d="M8 40 C12 28, 24 16, 56 10 C48 18, 38 28, 34 38 C38 30, 44 22, 56 10 C36 20, 22 32, 14 44 L8 40Z" fill="url(#wg)" opacity="0.9"/>
+            <path d="M12 46 C16 36, 26 26, 52 20 C44 28, 36 36, 32 44 C36 38, 42 30, 52 20 C34 30, 24 40, 18 50 L12 46Z" fill="url(#wg)" opacity="0.55"/>
+            <!-- Small circle accent -->
+            <circle cx="32" cy="52" r="3.5" fill="url(#wg)" opacity="0.7"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>WINGS</h1>
+          <div class="brand-sub">Operations Portal</div>
         </div>
       </div>
 
+      <!-- Acronym Breakdown -->
+      <div class="acronym">
+        <div class="acronym-line"><span class="acronym-letter">W</span><span class="acronym-word">Wheelchair</span></div>
+        <div class="acronym-line"><span class="acronym-letter">I</span><span class="acronym-word">Inclusive</span></div>
+        <div class="acronym-line"><span class="acronym-letter">N</span><span class="acronym-word">Navigation</span></div>
+        <div class="acronym-line"><span class="acronym-letter">G</span><span class="acronym-word">Ground</span></div>
+        <div class="acronym-line"><span class="acronym-letter">S</span><span class="acronym-word">Services</span></div>
+        <div class="acronym-loc">Toronto Pearson &mdash; YYZ</div>
+      </div>
+
+      <!-- Quote of the Day -->
       <div class="quoteCard" aria-label="Quote of the day">
         <div class="quoteTop">
           <div class="chip">Quote of the day</div>
-          <div class="date" id="todayToronto">—</div>
+          <div class="date" id="todayToronto">&mdash;</div>
         </div>
-        <div class="quote" id="quoteText">—</div>
+        <div class="quote" id="quoteText">&mdash;</div>
       </div>
 
-      <div class="field">
-        <label for="u">Username</label>
-        <input id="u" placeholder="Enter your username" autocomplete="username" />
-      </div>
+      <!-- Login Form -->
+      <div class="form-section">
+        <div class="field">
+          <label for="u">Username</label>
+          <input id="u" placeholder="Enter your username" autocomplete="username" />
+        </div>
 
-      <div class="field">
-        <label for="p">PIN</label>
-        <div class="pwWrap">
-          <input id="p" placeholder="Enter your PIN" type="password" inputmode="numeric" autocomplete="current-password" />
-          <div class="togglePw" id="togglePw" role="button" tabindex="0" aria-label="Show PIN">Show</div>
+        <div class="field">
+          <label for="p">PIN</label>
+          <div class="pwWrap">
+            <input id="p" placeholder="Enter your PIN" type="password" inputmode="numeric" autocomplete="current-password" />
+            <div class="togglePw" id="togglePw" role="button" tabindex="0" aria-label="Show PIN">Show</div>
+          </div>
         </div>
       </div>
 
-      <div class="row">
+      <!-- Buttons -->
+      <div class="btn-row">
         <button id="btn" onclick="login()">Login</button>
-        <button onclick="go('dispatch')">Dispatch</button>
-        <button onclick="go('lead')">Lead</button>
-        <button onclick="go('mgmt')">Mgmt Pre-Alerts</button>
-        <button onclick="go('archive')">Archive</button>
+        <button onclick="go('dispatch')"><span class="btn-icon">&#9783;</span> Dispatch</button>
+        <button onclick="go('lead')"><span class="btn-icon">&#9873;</span> Lead</button>
+        <button onclick="go('mgmt')"><span class="btn-icon">&#9881;</span> Pre-Alerts</button>
+        <button onclick="go('archive')"><span class="btn-icon">&#9776;</span> Archive</button>
       </div>
 
-      <div id="msg" class="hint"></div>
+      <div id="msg" class="msg-info"></div>
       <div id="err" class="err"></div>
       <div id="ok" class="ok"></div>
 
-      <div class="hint">Token stored in <b>localStorage</b>. Quote rotates daily (Toronto time).</div>
+      <div class="motto">Fast hands. Calm mind. Clean data.</div>
     </div>
   </div>
 
@@ -292,7 +463,7 @@
   const idx = hashStringToInt(ymd) % QUOTES.length;
 
   const el = document.getElementById("quoteText");
-  el.textContent = `“${QUOTES[idx].t}”`;
+  el.textContent = `"${QUOTES[idx].t}"`;
 
   const s = document.createElement("small");
   s.textContent = `— ${QUOTES[idx].a}`;
@@ -319,7 +490,7 @@
     document.getElementById("p").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
 
     async function login(){
-      setErr(''); setOk(''); setMsg('Logging in…');
+      setErr(''); setOk(''); setMsg('Logging in\u2026');
       const u = (document.getElementById('u').value || '').trim();
       const p = (document.getElementById('p').value || '').trim();
       if (!u || !p) { setMsg(''); setErr('Enter username and pin.'); return; }
@@ -349,7 +520,7 @@
           window.location.href = "/lead.html";
           return;
         }
-        setOk("Logged in. Choose Dispatch, Lead, or Management.");
+        setOk("Logged in. Choose Dispatch, Lead, or Pre-Alerts.");
       } catch (e) {
         document.getElementById('btn').disabled = false;
         setMsg('');
@@ -367,7 +538,7 @@
         });
         const data = await res.json();
         if (data && data.ok) {
-          setOk("Session active. Choose Dispatch, Lead, or Management.");
+          setOk("Session active. Choose Dispatch, Lead, or Pre-Alerts.");
           applyAccess(data.access);
         }
         else {
