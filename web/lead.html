@@ -53,6 +53,7 @@
       padding: 6px 10px; background: #fff; border: 1px solid #d0d0d0;
       border-radius: 8px; font-size: 13px; cursor: grab; user-select: none;
       transition: box-shadow 0.15s, background 0.15s;
+      touch-action: none; /* Prevent browser scroll/zoom during touch drag on Android/iOS */
     }
     .agent-tag:active { cursor: grabbing; }
     .agent-tag:hover { background: #f0f4ff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
@@ -131,6 +132,79 @@
     }
 
     .main-content { flex: 1; min-width: 0; }
+
+    /* ── Zone Picker Modal ─────────────────── */
+    .zone-picker-overlay {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,.55);
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
+    .zone-picker-box {
+      background: #fff; border-radius: 16px; padding: 28px 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      max-width: 420px; width: 90%; text-align: center;
+    }
+    .zone-picker-box h2 { margin: 0 0 6px; font-size: 20px; color: #111; }
+    .zone-picker-box .sub { font-size: 13px; color: #666; margin-bottom: 20px; }
+    .zone-picker-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .zone-pick-btn {
+      padding: 18px 14px; border-radius: 12px; border: 2px solid #e1e1e1;
+      background: #fafafa; font-size: 16px; font-weight: 700; color: #333;
+      cursor: pointer; transition: all .15s;
+    }
+    .zone-pick-btn:hover { border-color: #7C5CFF; background: #f3efff; color: #7C5CFF; }
+
+    /* ── View-Only Banner ──────────────────── */
+    .view-only-banner {
+      background: #fff3cd; border: 1px solid #e4d39b; border-radius: 8px;
+      padding: 8px 14px; font-size: 13px; color: #856404;
+      margin-top: 6px; display: none;
+    }
+    .view-only-banner b { font-weight: 700; }
+
+    /* ── Working Zone Badge ─────────────────── */
+    .work-zone-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 999px;
+      background: #7C5CFF; color: #fff; font-size: 12px; font-weight: 700;
+      white-space: nowrap;
+    }
+    .work-zone-change {
+      padding: 3px 8px; border-radius: 999px; font-size: 11px;
+      background: rgba(255,255,255,.2); color: #fff; border: 1px solid rgba(255,255,255,.3);
+      cursor: pointer; font-weight: 600;
+    }
+    .work-zone-change:hover { background: rgba(255,255,255,.35); }
+
+    /* ── Filter Layout (two rows) ──────────── */
+    .topbar-primary {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 0 4px;
+    }
+    .topbar-filters {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      padding: 4px 0 2px; font-size: 12px;
+    }
+    .filter-group {
+      display: flex; gap: 4px; align-items: center;
+    }
+    .filter-group-label {
+      font-size: 11px; color: #888; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; margin-right: 2px; white-space: nowrap;
+    }
+    .topbar-filters .pill { padding: 6px 12px; font-size: 12px; }
+    .topbar-filters label { font-size: 12px; color: #555; }
+    .topbar-filters input[type="time"] { padding: 4px 6px; font-size: 12px; }
+    .topbar-filters select { padding: 4px 8px; font-size: 12px; }
+
+    /* Working zone pill highlight */
+    .pill.work-zone-pill { box-shadow: 0 0 0 2px #7C5CFF; }
+
+    /* Read-only row dimming */
+    tr.readonly-row { opacity: 0.7; }
+    tr.readonly-row .assign-cell { pointer-events: none; }
   </style>
 </head>
 <body>
@@ -155,54 +229,76 @@
       try {
         const u = JSON.parse(localStorage.getItem("PRM_USER") || "{}");
         if (u.username) document.getElementById("navUser").textContent = u.username;
+        const access = JSON.parse(localStorage.getItem("PRM_ACCESS") || "{}");
+        if (!access.dispatch) { const el = document.getElementById("navDispatch"); if(el) el.style.display="none"; }
+        if (!access.mgmt) { const el = document.getElementById("navMgmt"); if(el) el.style.display="none"; const el2 = document.getElementById("navArchive"); if(el2) el2.style.display="none"; }
       } catch {}
     })();
   </script>
 
-  <div class="topbar">
-    <button onclick="manualRefresh()">Refresh</button>
+  <!-- Zone Picker Modal -->
+  <div class="zone-picker-overlay" id="zonePicker" style="display:none;">
+    <div class="zone-picker-box">
+      <h2>Select Your Working Zone</h2>
+      <div class="sub">Full edit access for your zone. Other zones will be view-only.</div>
+      <div class="zone-picker-grid">
+        <button class="zone-pick-btn" onclick="pickWorkZone('TB')">TB</button>
+        <button class="zone-pick-btn" onclick="pickWorkZone('Gates')">Gates</button>
+        <button class="zone-pick-btn" onclick="pickWorkZone('Pier A')">Pier A</button>
+        <button class="zone-pick-btn" onclick="pickWorkZone('T1')">T1</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 1: Primary (zone nav + search + refresh) -->
+  <div class="topbar-primary">
+    <span class="work-zone-badge" id="workZoneBadge">Working: —</span>
+    <button class="work-zone-change" onclick="showZonePicker()">Change</button>
 
     <div class="filters" id="zoneControls" style="flex: 1;">
       <button class="pill active" id="zTB" onclick="setZone('TB')">TB</button>
       <button class="pill" id="zGates" onclick="setZone('Gates')">Gates</button>
       <button class="pill" id="zPierA" onclick="setZone('Pier A')">Pier A</button>
       <button class="pill" id="zT1" onclick="setZone('T1')">T1</button>
-      <select id="zoneSel" onchange="onZoneDropdownChange()"></select>
+      <select id="zoneSel" onchange="onZoneDropdownChange()" style="display:none;"></select>
     </div>
 
-    <div class="filters">
+    <div class="searchWrap">
+      <input id="q" placeholder="Search flight..." oninput="onSearchInput()" />
+    </div>
+    <button onclick="manualRefresh()">Refresh</button>
+  </div>
+
+  <!-- Row 2: Filters -->
+  <div class="topbar-filters">
+    <div class="filter-group">
+      <span class="filter-group-label">Type</span>
       <button class="pill active" id="tALL" onclick="setType('ALL')">All</button>
       <button class="pill" id="tARR" onclick="setType('ARR')">ARR</button>
       <button class="pill" id="tDEP" onclick="setType('DEP')">DEP</button>
     </div>
-
-    <div class="filters">
-      <button class="pill active" id="cALL" onclick="setChangeFilter('ALL')">All changes</button>
-      <button class="pill" id="cGate" onclick="setChangeFilter('GATE')">Gate change</button>
-      <button class="pill" id="cTime" onclick="setChangeFilter('TIME')">Time change</button>
+    <div class="filter-group">
+      <span class="filter-group-label">Changes</span>
+      <button class="pill active" id="cALL" onclick="setChangeFilter('ALL')">All</button>
+      <button class="pill" id="cGate" onclick="setChangeFilter('GATE')">Gate</button>
+      <button class="pill" id="cTime" onclick="setChangeFilter('TIME')">Time</button>
     </div>
-
-    <div class="filters" id="timeWindowControl">
+    <div class="filter-group" id="timeWindowControl">
+      <span class="filter-group-label">Time</span>
       <label>From <input type="time" id="fromTime" onchange="onTimeWindowChange()" /></label>
       <label>To <input type="time" id="toTime" onchange="onTimeWindowChange()" /></label>
       <button class="pill" onclick="clearTimeWindow()">Reset</button>
     </div>
-
-    <div class="filters hidden" id="opsDayControl">
-      <span>Ops Day</span>
+    <div class="filter-group hidden" id="opsDayControl">
+      <span class="filter-group-label">Ops Day</span>
       <select id="opsDaySelect">
         <option value="current">Current</option>
         <option value="next">Next</option>
       </select>
     </div>
-
-    <div class="searchWrap">
-      <input id="q" placeholder="Search flight (ex: AC123, TS 101)..." oninput="onSearchInput()" />
-      <div class="hint">Search matches Flight (spaces ignored). Auto-refresh pauses while typing.</div>
-    </div>
   </div>
 
-  <div class="hint">Edits: Assignment, Pax. Ack clears alerts instantly (does NOT remove flight).</div>
+  <div class="view-only-banner" id="viewOnlyBanner"><b>View Only</b> — You are viewing <span id="viewingZoneName"></span>. Switch to your working zone to edit.</div>
   <div id="err" class="err"></div>
   <div id="loading" class="loading" style="display:none;">Loading…</div>
 
@@ -212,7 +308,7 @@
     <!-- Agent Sidebar -->
     <div id="agentSidebar" class="agent-sidebar">
       <div class="sidebar-header">
-        <h3>Agents</h3>
+        <h3 id="sidebarTitle">Agents</h3>
         <button class="sidebar-toggle" onclick="toggleSidebar()" title="Collapse">&laquo;</button>
       </div>
       <div class="sidebar-add">
@@ -317,6 +413,55 @@
     let selectedZone = "TB";
     let opsDayMode = "current";
     let opsDayEnabled = false;
+
+    // ── Zone Restrictions ──
+    const LS_WORK_ZONE = "PRM_LEAD_WORK_ZONE";
+    let workZone = localStorage.getItem(LS_WORK_ZONE) || "";
+
+    function isReadOnly() { return workZone && selectedZone !== workZone; }
+
+    function showZonePicker() {
+      document.getElementById("zonePicker").style.display = "flex";
+    }
+    function pickWorkZone(z) {
+      workZone = z;
+      localStorage.setItem(LS_WORK_ZONE, z);
+      document.getElementById("zonePicker").style.display = "none";
+      updateWorkZoneBadge();
+      updateSidebarTitle();
+      // Set selected zone to work zone and load
+      selectedZone = z;
+      syncZonePills_();
+      syncZoneDropdown_();
+      renderAgentList();
+      // If first pick (page just loaded), trigger full auth+init
+      if (!pollTimer) {
+        validateAuthThenInit();
+      } else {
+        useCacheThenFetch_();
+      }
+    }
+    function updateWorkZoneBadge() {
+      const badge = document.getElementById("workZoneBadge");
+      if (badge) badge.textContent = "Working: " + (workZone || "—");
+    }
+    function updateViewOnlyBanner() {
+      const banner = document.getElementById("viewOnlyBanner");
+      const nameEl = document.getElementById("viewingZoneName");
+      if (!banner) return;
+      if (isReadOnly()) {
+        if (nameEl) nameEl.textContent = selectedZone;
+        banner.style.display = "block";
+      } else {
+        banner.style.display = "none";
+      }
+      // Toggle sidebar interactivity
+      const sidebar = document.getElementById("agentSidebar");
+      if (sidebar) {
+        sidebar.style.opacity = isReadOnly() ? "0.5" : "1";
+        sidebar.style.pointerEvents = isReadOnly() ? "none" : "";
+      }
+    }
 
     let typingUntil = 0;
     const saveTimers = new Map();
@@ -428,7 +573,7 @@
       render();
     }
 
-    function setZone(z) { selectedZone = z; syncZonePills_(); syncZoneDropdown_(); useCacheThenFetch_(); }
+    function setZone(z) { selectedZone = z; syncZonePills_(); syncZoneDropdown_(); updateViewOnlyBanner(); useCacheThenFetch_(); }
 
     function onZoneDropdownChange() {
       const z = document.getElementById("zoneSel").value;
@@ -442,7 +587,10 @@
       const map = { "TB":"zTB", "Gates":"zGates", "Pier A":"zPierA", "T1":"zT1" };
       Object.keys(map).forEach(k => {
         const el = document.getElementById(map[k]);
-        if (el) el.classList.toggle("active", selectedZone === k);
+        if (el) {
+          el.classList.toggle("active", selectedZone === k);
+          el.classList.toggle("work-zone-pill", workZone === k);
+        }
       });
     }
     function syncZoneDropdown_() {
@@ -588,6 +736,7 @@
     }
 
     function render() {
+      updateViewOnlyBanner();
       const tb = document.querySelector("#tbl tbody");
       tb.innerHTML = "";
 
@@ -620,8 +769,10 @@
         .sort((a, b) => (Number(b.watch) - Number(a.watch)) || (a.idx - b.idx))
         .map(item => item.r);
 
+      const ro = isReadOnly();
       ordered.forEach(r => {
         const tr = document.createElement("tr");
+        if (ro) tr.classList.add("readonly-row");
 
         const t = String(r.type || "").toUpperCase();
         const typeClass = (t === "ARR") ? "type-arr" : (t === "DEP") ? "type-dep" : "";
@@ -632,7 +783,7 @@
         const watchChecked = watchRaw === "1" || watchRaw === "true" || watchRaw === "yes";
 
         tr.innerHTML = `
-          <td class="watchCell"><input class="watch-toggle" type="checkbox" data-key="${escapeAttr(r.key)}" data-field="watchlist" ${watchChecked ? "checked" : ""} /></td>
+          <td class="watchCell"><input class="watch-toggle" type="checkbox" data-key="${escapeAttr(r.key)}" data-field="watchlist" ${watchChecked ? "checked" : ""} ${ro ? "disabled" : ""} /></td>
           <td><div><b>${escapeHtml(r.flight || "")}</b></div><div class="small">${escapeHtml(r.key || "")}</div></td>
           <td class="${typeClass}">${escapeHtml(r.type || "")}</td>
           <td class="${timeClass}">${escapeHtml(fmtTimeOnly(r.timeEst))}</td>
@@ -644,7 +795,7 @@
           <td class="alert">${escapeHtml(r.alert || "")}</td>
           <td>${renderAssignmentCell(r)}</td>
           <td>${renderPaxStepper(r)}</td>
-          <td><button class="quiet" onclick="ack('${escapeAttr(r.key)}')">Ack</button></td>
+          <td>${ro ? "" : `<button class="quiet" onclick="ack('${escapeAttr(r.key)}')">Ack</button>`}</td>
         `;
 
         tb.appendChild(tr);
@@ -862,12 +1013,19 @@
       const key = escapeAttr(r.key);
       const raw = r.assignment || "";
       const names = raw ? raw.split(",").map(n => n.trim()).filter(Boolean) : [];
+      const ro = isReadOnly();
 
-      let chipsHtml = names.map((name, i) =>
-        `<span class="assign-chip">${escapeHtml(name)}<span class="chip-x" onclick="removeAssignment('${key}', ${i})" title="Remove">&times;</span></span>`
-      ).join("");
+      let chipsHtml = names.map((name, i) => {
+        if (ro) return `<span class="assign-chip">${escapeHtml(name)}</span>`;
+        return `<span class="assign-chip">${escapeHtml(name)}<span class="chip-x" onclick="removeAssignment('${key}', ${i})" title="Remove">&times;</span></span>`;
+      }).join("");
 
-      chipsHtml += `<span class="assign-add-btn" onclick="promptManualAssign('${key}')" title="Add agent">+</span>`;
+      if (!ro) {
+        chipsHtml += `<span class="assign-add-btn" onclick="promptManualAssign('${key}')" title="Add agent">+</span>`;
+      }
+      if (!names.length && ro) chipsHtml = `<span style="color:#aaa;font-size:12px;">—</span>`;
+
+      if (ro) return `<div class="assign-cell">${chipsHtml}</div>`;
 
       return `<div class="assign-cell" data-key="${key}"
                    ondragover="onAssignDragOver(event)"
@@ -904,6 +1062,9 @@
     function renderPaxStepper(r) {
       const key = escapeAttr(r.key);
       const paxVal = parseInt(r.pax, 10) || 0;
+      if (isReadOnly()) {
+        return `<span style="font-weight:700;font-size:13px;">${paxVal}</span>`;
+      }
       return `<div class="pax-stepper">
         <button onclick="stepPax('${key}', -1)">&minus;</button>
         <input class="pax-value" type="number" min="0"
@@ -979,6 +1140,7 @@
     function onAssignDrop(event) {
       event.preventDefault();
       event.currentTarget.classList.remove("drag-over");
+      if (isReadOnly()) return; // Can't drop in read-only zone
       const agentName = event.dataTransfer.getData("text/plain") || draggedAgent;
       if (!agentName) return;
       const key = event.currentTarget.getAttribute("data-key");
@@ -1059,8 +1221,8 @@
 
       stopTouchAutoScroll();
 
-      // Determine drop target
-      if (touchDragOver) {
+      // Determine drop target (ignore if read-only zone)
+      if (touchDragOver && !isReadOnly()) {
         touchDragOver.classList.remove("drag-over");
         const key = touchDragOver.getAttribute("data-key");
         if (key && touchDragAgent) {
@@ -1120,14 +1282,17 @@
     document.addEventListener("touchcancel", onDocumentTouchEnd);
 
     /* ── Agent Sidebar Management ─────────────── */
-    const LS_AGENTS = "PRM_AGENTS";
+    function agentKey_() {
+      const z = (workZone || "TB").replace(/\s+/g, "");
+      return "PRM_AGENTS_" + z;
+    }
 
     function getAgents() {
-      try { return JSON.parse(localStorage.getItem(LS_AGENTS)) || []; }
+      try { return JSON.parse(localStorage.getItem(agentKey_())) || []; }
       catch { return []; }
     }
 
-    function saveAgents(list) { localStorage.setItem(LS_AGENTS, JSON.stringify(list)); }
+    function saveAgents(list) { localStorage.setItem(agentKey_(), JSON.stringify(list)); }
 
     function renderAgentList() {
       const container = document.getElementById("agentList");
@@ -1182,8 +1347,24 @@
       useCacheThenFetch_();
     }
 
+    // Update sidebar title with zone name
+    function updateSidebarTitle() {
+      const el = document.getElementById("sidebarTitle");
+      if (el) el.textContent = workZone ? ("Agents — " + workZone) : "Agents";
+    }
+
     initOpsDayControl();
-    validateAuthThenInit();
+    updateWorkZoneBadge();
+    updateSidebarTitle();
+
+    if (!workZone) {
+      // Show zone picker first. pickWorkZone handles setting workZone + calling auth.
+      showZonePicker();
+    } else {
+      selectedZone = workZone;
+      syncZonePills_();
+      validateAuthThenInit();
+    }
   </script>
 </body>
 </html>
