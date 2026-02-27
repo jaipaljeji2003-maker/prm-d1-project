@@ -359,8 +359,8 @@
         <div class="acronym-line"><span class="acronym-letter">W</span><span class="acronym-word">Wheelchair</span></div>
         <div class="acronym-line"><span class="acronym-letter">I</span><span class="acronym-word">Inclusive</span></div>
         <div class="acronym-line"><span class="acronym-letter">N</span><span class="acronym-word">Navigation</span></div>
-        <div class="acronym-line"><span class="acronym-letter">G</span><span class="acronym-word">Ground</span></div>
-        <div class="acronym-line"><span class="acronym-letter">S</span><span class="acronym-word">Services</span></div>
+        <div class="acronym-line"><span class="acronym-letter">G</span><span class="acronym-word">Gate</span></div>
+        <div class="acronym-line"><span class="acronym-letter">S</span><span class="acronym-word">System</span></div>
         <div class="acronym-loc">Toronto Pearson &mdash; YYZ</div>
       </div>
 
@@ -390,12 +390,12 @@
       </div>
 
       <!-- Buttons -->
-      <div class="btn-row">
+      <div class="btn-row" id="btnRow">
         <button id="btn" onclick="login()">Login</button>
-        <button onclick="go('dispatch')"><span class="btn-icon">&#9783;</span> Dispatch</button>
-        <button onclick="go('lead')"><span class="btn-icon">&#9873;</span> Lead</button>
-        <button onclick="go('mgmt')"><span class="btn-icon">&#9881;</span> Pre-Alerts</button>
-        <button onclick="go('archive')"><span class="btn-icon">&#9776;</span> Archive</button>
+        <button id="btnDispatch" onclick="go('dispatch')" style="display:none"><span class="btn-icon">&#9783;</span> Dispatch</button>
+        <button id="btnLead" onclick="go('lead')" style="display:none"><span class="btn-icon">&#9873;</span> Lead</button>
+        <button id="btnMgmt" onclick="go('mgmt')" style="display:none"><span class="btn-icon">&#9881;</span> Pre-Alerts</button>
+        <button id="btnArchive" onclick="go('archive')" style="display:none"><span class="btn-icon">&#9776;</span> Archive</button>
       </div>
 
       <div id="msg" class="msg-info"></div>
@@ -419,7 +419,17 @@
     function getToken(){ return localStorage.getItem(LS_TOKEN) || ""; }
 
     function applyAccess(access){
-      // Management view retired; keep for backwards compatibility hooks.
+      if (!access) return access;
+      localStorage.setItem("PRM_ACCESS", JSON.stringify(access));
+      // Show/hide nav buttons based on role
+      const d = document.getElementById("btnDispatch");
+      const l = document.getElementById("btnLead");
+      const m = document.getElementById("btnMgmt");
+      const a = document.getElementById("btnArchive");
+      if (d) d.style.display = access.dispatch ? "" : "none";
+      if (l) l.style.display = access.lead     ? "" : "none";
+      if (m) m.style.display = access.mgmt     ? "" : "none";
+      if (a) a.style.display = access.mgmt     ? "" : "none";
       return access;
     }
 

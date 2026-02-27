@@ -198,9 +198,21 @@
       try {
         const u = JSON.parse(localStorage.getItem("PRM_USER") || "{}");
         if (u.username) document.getElementById("navUser").textContent = u.username;
+        const access = JSON.parse(localStorage.getItem("PRM_ACCESS") || "{}");
+        if (!access.dispatch) { const el = document.getElementById("navDispatch"); if(el) el.style.display="none"; }
+        if (!access.lead) { const el = document.getElementById("navLead"); if(el) el.style.display="none"; }
       } catch {}
     })();
   </script>
+
+  <!-- Access Denied overlay (shown for non-mgmt users) -->
+  <div class="login-overlay" id="accessDenied" style="display:none;">
+    <div class="login-box" style="text-align:center;">
+      <h2 style="color:#FF4D6D;">Access Denied</h2>
+      <div class="sub">Management-level access required to view Pre-Alerts.</div>
+      <button onclick="location.href='/';" style="margin-top:14px; background:linear-gradient(135deg,#7C5CFF,#00D4FF); color:#fff; border:none;">Back to Home</button>
+    </div>
+  </div>
 
   <!-- Login overlay (mgmt only) -->
   <div class="login-overlay" id="loginOverlay">
@@ -697,6 +709,7 @@
 
         localStorage.setItem(LS_TOKEN, data.token);
         localStorage.setItem("PRM_USER", JSON.stringify(data.user || {}));
+        localStorage.setItem("PRM_ACCESS", JSON.stringify(data.access || {}));
         hideLogin();
         startApp();
       } catch (e) {
@@ -711,12 +724,28 @@
     async function validateSession() {
       const token = getToken();
       if (!token) return false;
+      // Quick client-side check: if stored access says no mgmt, deny immediately
+      try {
+        const storedAccess = JSON.parse(localStorage.getItem("PRM_ACCESS") || "{}");
+        if (storedAccess && storedAccess.mgmt === false) {
+          document.getElementById("accessDenied").style.display = "flex";
+          document.getElementById("loginOverlay").style.display = "none";
+          return "denied";
+        }
+      } catch {}
       try {
         const res = await fetch(API_BASE + "/auth/validate?app=mgmt", {
           headers: { "authorization": "Bearer " + token },
         });
         const data = await res.json();
-        return data && data.ok;
+        if (data && data.ok) return true;
+        // Valid token but no mgmt access = access denied (not login required)
+        if (data && data.error && data.error.includes("denied")) {
+          document.getElementById("accessDenied").style.display = "flex";
+          document.getElementById("loginOverlay").style.display = "none";
+          return "denied";
+        }
+        return false;
       } catch { return false; }
     }
 
@@ -778,9 +807,11 @@
     /* ── Init ─────────────────────────────────── */
     (async function boot() {
       const valid = await validateSession();
-      if (valid) {
+      if (valid === true) {
         hideLogin();
         startApp();
+      } else if (valid === "denied") {
+        // Access denied overlay already shown by validateSession
       } else {
         showLogin();
       }
