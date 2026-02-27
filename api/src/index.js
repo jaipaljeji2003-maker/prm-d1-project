@@ -938,14 +938,10 @@ async function nightlyArchive(env) {
     return { archived: 0 };
   }
 
-  // Check if already archived for this date
-  const { results: existing } = await env.DB.prepare(
-    "SELECT id FROM archive WHERE ops_date = ? LIMIT 1"
-  ).bind(opsDateStr).all();
-  if (existing.length > 0) {
-    console.log(`[archive] already archived for ${opsDateStr}`);
-    return { archived: 0 };
-  }
+  // Idempotent: remove any previous (possibly partial) archive for this date
+  await env.DB.prepare(
+    "DELETE FROM archive WHERE ops_date = ?"
+  ).bind(opsDateStr).run();
 
   // Write to archive table (one row per flight)
   const INS = env.DB.prepare(
@@ -1318,8 +1314,8 @@ async function getFlightsInWindow(env, startISO, endISO) {
 async function handleScheduled(event, env) {
   const cron = event.cron || "";
 
-  // Nightly archive at 03:00 Toronto time (07:00 UTC in EDT, 08:00 UTC in EST)
-  if (cron === "0 7 * * *" || cron === "0 8 * * *") {
+  // Nightly archive at 03:30 Toronto time (07:30 UTC in EDT, 08:30 UTC in EST)
+  if (cron === "30 7 * * *" || cron === "30 8 * * *") {
     try { await nightlyArchive(env); }
     catch (err) { console.error("[archive] error:", err?.message || err); }
     return;
