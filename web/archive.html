@@ -1,0 +1,541 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PRM Archive Viewer — Management</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, Helvetica, sans-serif; font-size: 14px;
+      color: #111; background: #f5f5f5; padding: 10px 14px;
+    }
+
+    /* ── Toolbar ──────────────────────────────── */
+    .topbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      padding: 8px 10px; background: #fff; border-radius: 10px;
+      border: 1px solid #e1e1e1; margin-bottom: 10px;
+    }
+    .topbar button, .topbar select {
+      padding: 5px 14px; font-size: 13px; cursor: pointer;
+      border: 1px solid #ccc; border-radius: 6px; background: #fff;
+    }
+    .topbar button:hover { background: #eee; }
+    .topbar button.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    .topbar button.primary:hover { background: #155bb5; }
+    .filters { display: flex; gap: 4px; align-items: center; }
+    .filters label { font-size: 12px; color: #555; }
+    .pill {
+      padding: 4px 12px; border-radius: 999px; border: 1px solid #ccc;
+      background: #fff; font-size: 12px; cursor: pointer;
+    }
+    .pill:hover { background: #f0f0f0; }
+    .pill.active { background: #111; color: #fff; border-color: #111; }
+    .meta { font-size: 11px; color: #888; margin-left: auto; white-space: nowrap; }
+
+    /* ── Search ───────────────────────────────── */
+    .search-box {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .search-box input {
+      padding: 5px 10px; border: 1px solid #ccc; border-radius: 6px;
+      font-size: 13px; width: 220px;
+    }
+    .search-hint {
+      font-size: 10px; color: #aaa;
+    }
+
+    /* ── KPIs ─────────────────────────────────── */
+    .summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .kpi {
+      background: #fff; border: 1px solid #e1e1e1; border-radius: 10px;
+      padding: 10px 16px; text-align: center; min-width: 100px;
+    }
+    .kpi .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi .value { font-size: 24px; font-weight: 700; margin-top: 2px; }
+    .kpi .value.wchr { color: #1a73e8; }
+    .kpi .value.wchc { color: #e67e22; }
+    .kpi .value.prm  { color: #c0392b; }
+    .kpi .value.flt  { color: #27ae60; }
+    .kpi .value.tot  { color: #333; }
+    .kpi .sub { font-size: 10px; color: #aaa; margin-top: 2px; }
+
+    /* ── Column Picker ───────────────────────── */
+    .col-picker {
+      display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px;
+      padding: 8px 10px; background: #fff; border: 1px solid #e1e1e1; border-radius: 10px;
+    }
+    .col-picker span { font-size: 11px; color: #888; font-weight: 700; text-transform: uppercase; margin-right: 4px; align-self: center; }
+    .col-tag {
+      padding: 3px 10px; border-radius: 999px; border: 1px solid #ccc;
+      background: #fff; font-size: 11px; cursor: pointer; user-select: none;
+    }
+    .col-tag:hover { background: #f0f0f0; }
+    .col-tag.on { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+
+    /* ── Table ────────────────────────────────── */
+    .tableWrap {
+      background: #fff; border: 1px solid #e1e1e1; border-radius: 10px;
+      overflow: auto; max-height: 72vh;
+    }
+    #tbl {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    #tbl th {
+      position: sticky; top: 0; z-index: 2;
+      background: #f7f7f7; font-size: 11px; text-transform: uppercase;
+      padding: 7px 8px; border-bottom: 2px solid #ddd;
+      text-align: left; white-space: nowrap; cursor: pointer;
+      user-select: none;
+    }
+    #tbl th:hover { background: #eee; }
+    #tbl th .sort-arrow { font-size: 10px; margin-left: 3px; color: #aaa; }
+    #tbl td {
+      padding: 5px 8px; border-bottom: 1px solid #f0f0f0;
+      white-space: nowrap;
+    }
+    #tbl .flt { font-weight: 700; }
+    #tbl .arr { color: #155724; }
+    #tbl .dep { color: #1a4d8f; }
+    #tbl .cnt { font-weight: 700; text-align: center; }
+    #tbl .cnt-hi { font-weight: 700; text-align: center; color: #c00; }
+    #tbl tr.match-hl { background: #fffde7; }
+
+    .err { color: #b00020; font-weight: bold; padding: 4px 10px; display: none; }
+    .err.show { display: block; }
+    #loading { text-align: center; padding: 40px; font-size: 14px; color: #666; }
+
+    /* ── Print ────────────────────────────────── */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .topbar, .col-picker, .login-overlay { display: none !important; }
+    }
+
+    /* ── Login ────────────────────────────────── */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: linear-gradient(135deg, #0a0e1a, #141b33);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .login-box {
+      background: rgba(15,22,48,0.85); border: 1px solid #1d2a55;
+      border-radius: 16px; padding: 28px 24px; width: min(400px, 90%);
+      box-shadow: 0 18px 55px rgba(0,0,0,.55); color: #eaf0ff;
+    }
+    .login-box h2 { font-size: 18px; margin-bottom: 4px; }
+    .login-box .sub { font-size: 12px; color: #7f8cc3; margin-bottom: 16px; }
+    .login-box label { display: block; font-size: 12px; color: #aab7e6; margin-bottom: 4px; }
+    .login-box input {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid #1d2a55; background: rgba(7,10,18,0.4);
+      color: #eaf0ff; margin-bottom: 12px; outline: none;
+    }
+    .login-box input:focus { border-color: #7c5cff; box-shadow: 0 0 0 3px rgba(124,92,255,.2); }
+    .login-box button {
+      width: 100%; padding: 11px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, #7c5cff, #00d4ff);
+      color: #081022; font-weight: 700; font-size: 14px; cursor: pointer;
+    }
+    .login-box button:hover { filter: brightness(1.05); }
+    .login-box button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-box .login-err {
+      color: #ffd0d9; background: rgba(255,77,109,.12);
+      border: 1px solid rgba(255,77,109,.3); padding: 8px 10px;
+      border-radius: 8px; font-size: 12px; margin-bottom: 10px;
+    }
+    .login-box .login-err:empty { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Login -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <h2>Archive Viewer</h2>
+      <div class="sub">Mgmt-level access required</div>
+      <div class="login-err" id="loginErr"></div>
+      <label for="loginUser">Username</label>
+      <input id="loginUser" placeholder="Username" autocomplete="username" />
+      <label for="loginPin">PIN</label>
+      <input id="loginPin" placeholder="PIN" type="password" inputmode="numeric" autocomplete="current-password" />
+      <button id="loginBtn" onclick="doLogin()">Login</button>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="topbar">
+    <button class="primary" onclick="loadRows()">Load</button>
+    <button onclick="window.print()">Print</button>
+
+    <div class="filters">
+      <label>Ops Date</label>
+      <select id="datePicker" onchange="onDateChange()">
+        <option value="">Select date...</option>
+      </select>
+    </div>
+
+    <div class="filters" id="typePills">
+      <button class="pill active" onclick="setType('ALL')">All</button>
+      <button class="pill" onclick="setType('ARR')">ARR</button>
+      <button class="pill" onclick="setType('DEP')">DEP</button>
+    </div>
+
+    <div class="search-box">
+      <input id="q" placeholder="Search: flight, gate, zone, origin..." oninput="onSearch()" />
+      <span class="search-hint">multi-field fuzzy</span>
+    </div>
+
+    <span class="meta" id="metaInfo"></span>
+  </div>
+
+  <div id="err" class="err"></div>
+  <div class="summary" id="summary"></div>
+
+  <!-- Column picker -->
+  <div class="col-picker" id="colPicker"></div>
+
+  <div id="loading" style="display:none;">Loading archive...</div>
+
+  <!-- Data table -->
+  <div class="tableWrap">
+    <table id="tbl">
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <script src="/config.js"></script>
+  <script>
+    /* ── Config ──────────────────────────────── */
+    const API_BASE = (window.PRM_CONFIG && window.PRM_CONFIG.API_BASE) || "";
+    const LS_TOKEN = "PRM_TOKEN";
+    const TZ = "America/Toronto";
+    const timeFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false });
+
+    /* ── All available columns ────────────────── */
+    const ALL_COLS = [
+      { key: "flight",       label: "Flight",     on: true,  render: (r) => r.flight || "" },
+      { key: "type",         label: "Type",        on: true,  render: (r) => r.type || "" },
+      { key: "time_est",     label: "Est Time",    on: true,  render: (r) => fmtT(r.time_est) },
+      { key: "sched",        label: "Sched",       on: true,  render: (r) => fmtT(r.sched) },
+      { key: "origin_dest",  label: "Origin/Dest", on: true,  render: (r) => r.origin_dest || "" },
+      { key: "gate",         label: "Gate",         on: true,  render: (r) => r.gate || "" },
+      { key: "zone_current", label: "Zone",         on: true,  render: (r) => r.zone_current || "" },
+      { key: "wchr",         label: "WCHR",         on: true,  render: (r) => numOrBlank(r.wchr) },
+      { key: "wchc",         label: "WCHC",         on: true,  render: (r) => numOrBlank(r.wchc) },
+      { key: "comment",      label: "Comment",      on: true,  render: (r) => r.comment || "" },
+      { key: "assignment",   label: "Assignment",   on: false, render: (r) => r.assignment || "" },
+      { key: "pax_assisted", label: "Pax",          on: false, render: (r) => numOrBlank(r.pax_assisted) },
+      { key: "watchlist",    label: "Watchlist",    on: false, render: (r) => r.watchlist === "1" ? "Y" : "" },
+      { key: "gate_changed", label: "Gate Chg",     on: false, render: (r) => r.gate_changed ? "Y" : "" },
+      { key: "gate_chg_from_gate", label: "Gate From", on: false, render: (r) => r.gate_chg_from_gate || "" },
+      { key: "gate_chg_to_gate",   label: "Gate To",   on: false, render: (r) => r.gate_chg_to_gate || "" },
+      { key: "time_changed", label: "Time Chg",    on: false, render: (r) => r.time_changed ? "Y" : "" },
+      { key: "time_delta_min", label: "Time Delta", on: false, render: (r) => r.time_delta_min != null ? r.time_delta_min + "m" : "" },
+      { key: "zone_changed", label: "Zone Chg",    on: false, render: (r) => r.zone_changed ? "Y" : "" },
+      { key: "zone_chg_from", label: "Zone From",  on: false, render: (r) => r.zone_chg_from || "" },
+      { key: "zone_chg_to",   label: "Zone To",    on: false, render: (r) => r.zone_chg_to || "" },
+      { key: "alert_text",   label: "Alert",        on: false, render: (r) => r.alert_text || "" },
+      { key: "key",          label: "Key",           on: false, render: (r) => r.key || "" },
+    ];
+
+    /* ── State ───────────────────────────────── */
+    let allRows = [];
+    let filterType = "ALL";
+    let searchQ = "";
+    let sortCol = "time_est";
+    let sortAsc = true;
+
+    /* ── Helpers ──────────────────────────────── */
+    function getToken() { return localStorage.getItem(LS_TOKEN) || ""; }
+
+    function fmtT(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? String(iso) : timeFmt.format(d);
+    }
+    function numOrBlank(v) {
+      const n = parseInt(v, 10);
+      return (n > 0) ? String(n) : "";
+    }
+    function esc(s) {
+      return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    /* ── Column picker ───────────────────────── */
+    function buildColPicker() {
+      const el = document.getElementById("colPicker");
+      let html = '<span>Columns</span>';
+      for (const c of ALL_COLS) {
+        html += `<div class="col-tag ${c.on ? 'on' : ''}" data-key="${c.key}" onclick="toggleCol('${c.key}')">${esc(c.label)}</div>`;
+      }
+      el.innerHTML = html;
+    }
+
+    function toggleCol(key) {
+      const col = ALL_COLS.find(c => c.key === key);
+      if (col) col.on = !col.on;
+      buildColPicker();
+      renderTable();
+    }
+
+    function activeCols() { return ALL_COLS.filter(c => c.on); }
+
+    /* ── Search: multi-field fuzzy ────────────── */
+    function matchesSearch(row, tokens) {
+      if (!tokens.length) return true;
+      // Build a searchable string from all fields
+      const haystack = [
+        row.flight, row.type, row.origin_dest, row.gate,
+        row.zone_current, row.comment, row.assignment, row.alert_text,
+        fmtT(row.time_est), fmtT(row.sched),
+      ].join(" ").toUpperCase().replace(/\s+/g, " ");
+
+      // Every token must match somewhere (AND logic)
+      return tokens.every(t => haystack.includes(t));
+    }
+
+    /* ── Sort ─────────────────────────────────── */
+    function sortRows(rows) {
+      const col = ALL_COLS.find(c => c.key === sortCol);
+      if (!col) return rows;
+
+      return [...rows].sort((a, b) => {
+        let va = col.render(a);
+        let vb = col.render(b);
+        // Numeric sort for WCHR/WCHC/Pax/TimeDelta
+        const na = parseFloat(va), nb = parseFloat(vb);
+        if (!isNaN(na) && !isNaN(nb)) return sortAsc ? na - nb : nb - na;
+        // String sort
+        va = String(va).toUpperCase();
+        vb = String(vb).toUpperCase();
+        if (va < vb) return sortAsc ? -1 : 1;
+        if (va > vb) return sortAsc ? 1 : -1;
+        return 0;
+      });
+    }
+
+    function onSort(key) {
+      if (sortCol === key) { sortAsc = !sortAsc; }
+      else { sortCol = key; sortAsc = true; }
+      renderTable();
+    }
+
+    /* ── Filter + Render ─────────────────────── */
+    function getFilteredRows() {
+      let rows = allRows;
+      if (filterType !== "ALL") rows = rows.filter(r => r.type === filterType);
+
+      const tokens = searchQ.toUpperCase().replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+      if (tokens.length) rows = rows.filter(r => matchesSearch(r, tokens));
+
+      return sortRows(rows);
+    }
+
+    function renderKPIs(filtered) {
+      let totalWCHR = 0, totalWCHC = 0, prmFlights = 0;
+      for (const r of filtered) {
+        const wr = parseInt(r.wchr, 10) || 0;
+        const wc = parseInt(r.wchc, 10) || 0;
+        totalWCHR += wr;
+        totalWCHC += wc;
+        if (wr + wc > 0) prmFlights++;
+      }
+
+      const dateVal = document.getElementById("datePicker").value;
+      const dateLabel = dateVal || "—";
+
+      document.getElementById("summary").innerHTML = `
+        <div class="kpi">
+          <div class="label">Ops Date</div>
+          <div class="value tot" style="font-size:18px;">${esc(dateLabel)}</div>
+          <div class="sub">03:00 → 02:59</div>
+        </div>
+        <div class="kpi"><div class="label">Total Flights</div><div class="value tot">${filtered.length}</div></div>
+        <div class="kpi"><div class="label">WCHR</div><div class="value wchr">${totalWCHR}</div></div>
+        <div class="kpi"><div class="label">WCHC</div><div class="value wchc">${totalWCHC}</div></div>
+        <div class="kpi"><div class="label">Total PRM</div><div class="value prm">${totalWCHR + totalWCHC}</div></div>
+        <div class="kpi"><div class="label">Flights w/ PRM</div><div class="value flt">${prmFlights}</div></div>
+      `;
+    }
+
+    function renderTable() {
+      const cols = activeCols();
+      const filtered = getFilteredRows();
+
+      renderKPIs(filtered);
+
+      // Thead
+      let headHtml = "";
+      for (const c of cols) {
+        const arrow = sortCol === c.key ? (sortAsc ? " ▲" : " ▼") : "";
+        headHtml += `<th onclick="onSort('${c.key}')">${esc(c.label)}<span class="sort-arrow">${arrow}</span></th>`;
+      }
+      document.getElementById("thead").innerHTML = headHtml;
+
+      // Tbody
+      const tokens = searchQ.toUpperCase().replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+      let bodyHtml = "";
+      if (!filtered.length) {
+        bodyHtml = `<tr><td colspan="${cols.length}" style="padding:20px;color:#888;text-align:center;">No flights found</td></tr>`;
+      } else {
+        for (const r of filtered) {
+          const isHl = tokens.length > 0;
+          bodyHtml += `<tr${isHl ? ' class="match-hl"' : ''}>`;
+          for (const c of cols) {
+            let val = esc(c.render(r));
+            let cls = "";
+            if (c.key === "flight") cls = "flt";
+            else if (c.key === "type") cls = r.type === "ARR" ? "arr" : "dep";
+            else if (c.key === "wchr" || c.key === "wchc") {
+              const n = parseInt(r[c.key], 10) || 0;
+              cls = n >= 10 ? "cnt-hi" : (n > 0 ? "cnt" : "");
+            }
+            bodyHtml += `<td${cls ? ` class="${cls}"` : ''}>${val}</td>`;
+          }
+          bodyHtml += "</tr>";
+        }
+      }
+      document.getElementById("tbody").innerHTML = bodyHtml;
+
+      // Meta
+      const total = allRows.length;
+      const shown = filtered.length;
+      document.getElementById("metaInfo").textContent = shown < total ? `${shown} of ${total} flights` : `${total} flights`;
+    }
+
+    /* ── Filter handlers ─────────────────────── */
+    function setType(t) {
+      filterType = t;
+      document.querySelectorAll("#typePills .pill").forEach(b => {
+        const v = b.getAttribute("onclick").match(/'([^']+)'/)?.[1] || "";
+        b.classList.toggle("active", v === t);
+      });
+      renderTable();
+    }
+
+    function onSearch() {
+      searchQ = document.getElementById("q").value;
+      renderTable();
+    }
+
+    /* ── Date picker & data loading ──────────── */
+    async function loadDates() {
+      const token = getToken();
+      const res = await fetch(API_BASE + "/archive/dates", {
+        headers: { "authorization": "Bearer " + token },
+      });
+      const data = await res.json();
+      if (!data || !data.ok) return;
+
+      const sel = document.getElementById("datePicker");
+      sel.innerHTML = '<option value="">Select ops date...</option>';
+      for (const d of data.dates) {
+        sel.innerHTML += `<option value="${esc(d.date)}">${esc(d.date)} (${d.flights} flights)</option>`;
+      }
+    }
+
+    function onDateChange() {
+      const v = document.getElementById("datePicker").value;
+      if (v) loadRows();
+    }
+
+    async function loadRows() {
+      const date = document.getElementById("datePicker").value;
+      if (!date) return;
+
+      const token = getToken();
+      document.getElementById("loading").style.display = "block";
+
+      try {
+        const res = await fetch(API_BASE + `/archive/rows?date=${encodeURIComponent(date)}`, {
+          headers: { "authorization": "Bearer " + token },
+        });
+        const data = await res.json();
+        document.getElementById("loading").style.display = "none";
+
+        if (!data || !data.ok) {
+          showErr(data?.error || "Failed to load archive.");
+          return;
+        }
+        hideErr();
+        allRows = data.rows || [];
+        sortCol = "time_est";
+        sortAsc = true;
+        renderTable();
+      } catch (e) {
+        document.getElementById("loading").style.display = "none";
+        showErr("Error: " + (e.message || e));
+      }
+    }
+
+    function showErr(msg) { const el = document.getElementById("err"); el.textContent = msg; el.classList.add("show"); }
+    function hideErr() { const el = document.getElementById("err"); el.textContent = ""; el.classList.remove("show"); }
+
+    /* ── Login ────────────────────────────────── */
+    function showLogin() { document.getElementById("loginOverlay").style.display = "flex"; }
+    function hideLogin() { document.getElementById("loginOverlay").style.display = "none"; }
+    function setLoginErr(msg) { document.getElementById("loginErr").textContent = msg || ""; }
+
+    async function doLogin() {
+      setLoginErr("");
+      const u = (document.getElementById("loginUser").value || "").trim();
+      const p = (document.getElementById("loginPin").value || "").trim();
+      if (!u || !p) { setLoginErr("Enter username and PIN."); return; }
+
+      document.getElementById("loginBtn").disabled = true;
+      try {
+        const res = await fetch(API_BASE + "/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: u, pin: p }),
+        });
+        const data = await res.json();
+        document.getElementById("loginBtn").disabled = false;
+        if (!data || !data.ok) { setLoginErr(data?.error || "Login failed."); return; }
+        if (!data.access || !data.access.mgmt) {
+          setLoginErr("Access denied. Management role required.");
+          return;
+        }
+        localStorage.setItem(LS_TOKEN, data.token);
+        localStorage.setItem("PRM_USER", JSON.stringify(data.user || {}));
+        hideLogin();
+        startApp();
+      } catch (e) {
+        document.getElementById("loginBtn").disabled = false;
+        setLoginErr(e.message || String(e));
+      }
+    }
+
+    document.getElementById("loginUser").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+    document.getElementById("loginPin").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+
+    async function validateSession() {
+      const token = getToken();
+      if (!token) return false;
+      try {
+        const res = await fetch(API_BASE + "/auth/validate?app=mgmt", {
+          headers: { "authorization": "Bearer " + token },
+        });
+        const data = await res.json();
+        return data && data.ok;
+      } catch { return false; }
+    }
+
+    /* ── Init ─────────────────────────────────── */
+    function startApp() {
+      buildColPicker();
+      loadDates();
+      renderTable();
+    }
+
+    (async function boot() {
+      const valid = await validateSession();
+      if (valid) { hideLogin(); startApp(); }
+      else { showLogin(); }
+    })();
+  </script>
+</body>
+</html>

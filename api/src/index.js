@@ -882,6 +882,33 @@ async function syncFIDSToD1(env, arrivals, departures) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// § 8b  ARCHIVE RETRIEVAL (Mgmt)
+// ─────────────────────────────────────────────────────────────
+
+async function handleArchiveDates(req, env) {
+  const { results } = await env.DB.prepare(
+    "SELECT DISTINCT ops_date, COUNT(*) as flight_count FROM archive GROUP BY ops_date ORDER BY ops_date DESC"
+  ).all();
+  return json({ ok: true, dates: results.map(r => ({ date: r.ops_date, flights: r.flight_count })) });
+}
+
+async function handleArchiveRows(req, env) {
+  const url = new URL(req.url);
+  const opsDate = (url.searchParams.get("date") || "").trim();
+  if (!opsDate || !/^\d{4}-\d{2}-\d{2}$/.test(opsDate))
+    return json({ ok: false, error: "Provide ?date=YYYY-MM-DD" }, { status: 400 });
+
+  const { results } = await env.DB.prepare(
+    "SELECT flight_data FROM archive WHERE ops_date = ? ORDER BY id"
+  ).bind(opsDate).all();
+
+  const rows = results.map(r => {
+    try { return JSON.parse(r.flight_data); } catch { return null; }
+  }).filter(Boolean);
+
+  return json({ ok: true, opsDate, flights: rows.length, rows });
+}
+
 // § 9  NIGHTLY ARCHIVE  (mirrors GAS nightlyArchive)
 // ─────────────────────────────────────────────────────────────
 
@@ -1370,6 +1397,17 @@ export default {
       if (path === "/lead/ack" && req.method === "POST") {
         await requireAuth(req, env, "lead");
         return withCors(await handleLeadAck(req, env), origin);
+      }
+
+      // ── Archive (Mgmt only) ────────────────────────────────
+      if (path === "/archive/dates" && req.method === "GET") {
+        await requireAuth(req, env, "mgmt");
+        return withCors(await handleArchiveDates(req, env), origin);
+      }
+
+      if (path === "/archive/rows" && req.method === "GET") {
+        await requireAuth(req, env, "mgmt");
+        return withCors(await handleArchiveRows(req, env), origin);
       }
 
       // ── Admin: manual sync trigger (for testing) ───────────

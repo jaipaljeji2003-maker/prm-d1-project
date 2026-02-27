@@ -224,6 +224,7 @@
         <button onclick="go('dispatch')">Dispatch</button>
         <button onclick="go('lead')">Lead</button>
         <button onclick="go('mgmt')">Mgmt Pre-Alerts</button>
+        <button onclick="go('archive')">Archive</button>
       </div>
 
       <div id="msg" class="hint"></div>
@@ -257,58 +258,13 @@
       let page = "/lead.html";
       if (app === "dispatch") page = "/dispatch.html";
       if (app === "mgmt") page = "/prealert.html";
+      if (app === "archive") page = "/archive.html";
       window.location.href = page;
     }
 
     // --- Quote of the day (Toronto, deterministic) ---
     const QUOTES = [
-  { t: "If it’s not in DataBase, it’s just airport folklore.", a: "Jaipal" },
-  { t: "I built this so we can suffer… efficiently.", a: "Jaipal" },
-
-  { t: "Scan the entrie. If you miss one passenger, they respawn a phone call.", a: "Harman" },
-  { t: "If you didn’t scan the passengers, my ghost will  hunt you in nights", a: "Harman" },
-
-  { t: "Team — calms ops. No hero moves. Just clean moves.", a: "Francesco (Director)" },
-  { t: "Fastt is good. Accurate is elite. Be elite.", a: "Francesco (Director))" },
-
-  { t: "Breaks are not optional . Burnout isn’t a KPI.", a: "Brenda (Ops Manager)" },
-  { t: "If you’re stressed, pause and ask: ‘time, gate, zone?’", a: "Brenda (Ops Manager)" },
-
-  { t: "Protect the operation like it’s your phone battery on 1%.", a: "Steve (Ops Manager)" },
-  { t: "We don’t do chaos. We do updates. Repeatedly.", a: "Steve (Ops Manager)" },
-
-  { t: "If the gate changes again, I’m transferring the call to destiny.", a: "Shawn (Duty Manager)" },
-  { t: "Radio discipline = peace. Radio freestyle = pain.", a: "Shawn (Duty Manager)" },
-
-  { t: "Assignments are vibes… backed by logic.", a: "Stuti (Duty Manager)" },
-  { t: "If you’re early, you’re legendary. If you’re on time, you’re still good.", a: "Stuti (Duty Manager)" },
-
-  { t: "Every ‘quick call’ is a lie. But we survive anyway.", a: "Mohameed (Duty Manager)" },
-  { t: "If you need coverage, ask early — don’t spawn a crisis at the gate.", a: "Mohameed (Duty Manager)" },
-
-  { t: "Today’s aesthetic: organized urgency.", a: "Chathura (Duty Manager)" },
-  { t: "We’re not panicking. We’re recalculating.", a: "Chathura (Duty Manager)" },
-
-  { t: "Whoever said ‘ASAP’… I just want to talk.", a: "Unknown Legend" },
-
-  // Dispatchers
-  { t: "Phone rings again and I’m evolving into airplane mode.", a: "Deneka (Dispatcher)" },
-  { t: "Copy that. Re-copy that. Still copy that.", a: "Deneka (Dispatcher)" },
-
-  { t: "Gate change? Very original. Try again.", a: "Sumandeep (Dispatcher)" },
-  { t: "If the flight number has no space, it’s giving ‘duplicate key energy’.", a: "Sumandeep (Dispatcher)" },
-
-  { t: "If it’s not written down, it didn’t happen. I don’t make the rules.", a: "Wendy (Dispatcher)" },
-  { t: "Confirm it once, confirm it twice, then confirm it again for character development.", a: "Wendy (Dispatcher)" },
-
-  { t: "We move fast  so passengers don’t have to.", a: "Amtul (Dispatcher)" },
-  { t: "Kind voice.Sharp brain. Let’s run it.", a: " (Dispatcher)" },
-
-  { t: "Lead life: assign, reassign, reassign again — cinematic.", a: "Jelisia (Dispatcher)" },
-  { t: "Pre-alerts are spoilers. Dispatch calls are plot twists.", a: "Jelisia (Dispatcher)" },
-
-  { t: "Wheelchairs don’t teleport. People don’t either. Plan like you mean it.", a: "Sagar (Dispatcher)" },
-  { t: "If the radio is quiet… something is loading.", a: "Sagar (Dispatcher)" }
+  { t: "The problem with internet quotes is that they are difficult to verify.", a: "Abraham Lincoln (PS given by Steve Dawson)" }
 ];
 
 
