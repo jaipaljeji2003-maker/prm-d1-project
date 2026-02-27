@@ -1275,15 +1275,18 @@ async function handleLeadRows(req, env) {
     const zoneCur = normalizeZone(r.zone_current);
     const zonePrv = normalizeZone(r.zone_prev);
 
+    let inMyZone = true;
     if (zoneWanted !== "ALL") {
-      const inMyZone = zoneCur === zoneWanted;
+      inMyZone = zoneCur === zoneWanted;
       const carryOld = zonePrv === zoneWanted; // old-zone carry-over until old-zone ACKs
       if (!inMyZone && !carryOld) continue;
     }
 
     // Per-board ACK filter
     const ackedHere = board ? getBoardAck(r, board) : false;
-    if (ackedHere) continue;
+    // Only hide carry-over flights after ACK (flight moved away from this zone).
+    // Flights still in the current zone stay visible — ACK just clears alerts.
+    if (ackedHere && !inMyZone) continue;
 
     out.push(applyPatch({
       key:         r.key,
@@ -1300,14 +1303,14 @@ async function handleLeadRows(req, env) {
       pax:         String(r.pax_assisted ?? ""),
       watchlist:   r.watchlist || "",
 
-      alert:       r.alert_text || "",
-      gateChanged: isTrue(r.gate_changed),
-      zoneChanged: isTrue(r.zone_changed),
-      timeChanged: isTrue(r.time_changed),
+      alert:       ackedHere ? "" : (r.alert_text || ""),
+      gateChanged: ackedHere ? false : isTrue(r.gate_changed),
+      zoneChanged: ackedHere ? false : isTrue(r.zone_changed),
+      timeChanged: ackedHere ? false : isTrue(r.time_changed),
 
-      zoneFrom:    r.zone_chg_from || "",
-      zoneTo:      r.zone_chg_to   || "",
-      timeDelta:   String(r.time_delta_min ?? ""),
+      zoneFrom:    ackedHere ? "" : (r.zone_chg_from || ""),
+      zoneTo:      ackedHere ? "" : (r.zone_chg_to   || ""),
+      timeDelta:   ackedHere ? "" : String(r.time_delta_min ?? ""),
     }));
   }
 
