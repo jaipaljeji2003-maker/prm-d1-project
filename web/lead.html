@@ -5,6 +5,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PRM Lead</title>
   <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* ── Agent Sidebar ──────────────────────── */
+    .page-layout { display: flex; gap: 0; }
+    .agent-sidebar {
+      width: 200px; min-width: 200px;
+      border-right: 1px solid #e1e1e1;
+      background: #fafafa;
+      padding: 10px;
+      border-radius: 10px 0 0 10px;
+      display: flex; flex-direction: column;
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+    }
+    .agent-sidebar.collapsed { width: 36px; min-width: 36px; padding: 10px 4px; }
+    .agent-sidebar.collapsed .sidebar-add,
+    .agent-sidebar.collapsed .agent-list,
+    .agent-sidebar.collapsed .sidebar-header h3 { display: none; }
+    .sidebar-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px;
+    }
+    .sidebar-header h3 {
+      font-size: 13px; text-transform: uppercase; color: #555;
+      letter-spacing: 0.04em; margin: 0;
+    }
+    .sidebar-toggle {
+      padding: 2px 6px; font-size: 14px; border: none;
+      background: none; color: #888; cursor: pointer;
+    }
+    .sidebar-add { display: flex; gap: 4px; margin-bottom: 8px; }
+    .sidebar-add input {
+      flex: 1; padding: 6px 8px; font-size: 12px; min-width: 0;
+      border: 1px solid #ccc; border-radius: 6px;
+    }
+    .sidebar-add button {
+      padding: 6px 10px; font-size: 12px; white-space: nowrap;
+      border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer;
+    }
+    .sidebar-add button:hover { background: #eee; }
+    .agent-list { display: flex; flex-direction: column; gap: 4px; }
+    .agent-tag {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px; background: #fff; border: 1px solid #d0d0d0;
+      border-radius: 8px; font-size: 13px; cursor: grab; user-select: none;
+      transition: box-shadow 0.15s, background 0.15s;
+    }
+    .agent-tag:active { cursor: grabbing; }
+    .agent-tag:hover { background: #f0f4ff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .agent-tag .remove-agent {
+      margin-left: 6px; cursor: pointer; color: #999;
+      font-weight: 700; font-size: 14px; line-height: 1;
+    }
+    .agent-tag .remove-agent:hover { color: #c00; }
+
+    /* ── Assignment Chips ───────────────────── */
+    .assign-cell {
+      display: flex; flex-wrap: wrap; gap: 3px; align-items: center;
+      min-height: 30px; padding: 2px 4px; border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .assign-cell.drag-over {
+      background: #dbeafe; outline: 2px dashed #1a73e8;
+    }
+    .assign-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 8px; background: #e8f0fe; border: 1px solid #c4d7f2;
+      border-radius: 999px; font-size: 12px; color: #1a3a6b;
+    }
+    .assign-chip .chip-x {
+      cursor: pointer; font-weight: 700; color: #888;
+      font-size: 13px; line-height: 1; margin-left: 2px;
+    }
+    .assign-chip .chip-x:hover { color: #c00; }
+    .assign-add-btn {
+      cursor: pointer; color: #888; font-size: 16px;
+      padding: 0 4px; line-height: 1;
+    }
+    .assign-add-btn:hover { color: #1a73e8; }
+
+    /* ── Pax Stepper ────────────────────────── */
+    .pax-stepper {
+      display: inline-flex; align-items: center;
+      border: 1px solid #cfcfcf; border-radius: 8px;
+      overflow: hidden; background: #fff;
+    }
+    .pax-stepper button {
+      width: 26px; height: 26px; border: none; border-radius: 0;
+      background: #f7f7f7; font-size: 15px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; padding: 0; color: #333;
+    }
+    .pax-stepper button:hover { background: #e8e8e8; }
+    .pax-stepper button:first-child { border-right: 1px solid #e0e0e0; }
+    .pax-stepper button:last-child { border-left: 1px solid #e0e0e0; }
+    .pax-stepper .pax-value {
+      width: 34px; text-align: center; font-size: 13px; font-weight: 700;
+      padding: 0 2px; border: none; outline: none; background: transparent;
+      -moz-appearance: textfield;
+    }
+    .pax-stepper .pax-value::-webkit-outer-spin-button,
+    .pax-stepper .pax-value::-webkit-inner-spin-button {
+      -webkit-appearance: none; margin: 0;
+    }
+
+    .main-content { flex: 1; min-width: 0; }
+  </style>
 </head>
 <body>
   <div class="topbar">
@@ -57,17 +163,35 @@
 
   <div class="summary" id="summary"></div>
 
-  <div class="tableWrap">
-    <table id="tbl">
-      <thead>
-        <tr>
-          <th>Watch</th><th>Flight</th><th>Type</th><th>Time</th><th>Origin/Dest</th><th>Gate</th><th>Zone</th>
-          <th>WCHR</th><th>WCHC</th><th>Alert</th>
-          <th>Assignment</th><th>Pax</th><th>Ack</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+  <div class="page-layout">
+    <!-- Agent Sidebar -->
+    <div id="agentSidebar" class="agent-sidebar">
+      <div class="sidebar-header">
+        <h3>Agents</h3>
+        <button class="sidebar-toggle" onclick="toggleSidebar()" title="Collapse">&laquo;</button>
+      </div>
+      <div class="sidebar-add">
+        <input id="agentInput" placeholder="Agent name..." onkeydown="if(event.key==='Enter')addAgent()" />
+        <button onclick="addAgent()">Add</button>
+      </div>
+      <div id="agentList" class="agent-list"></div>
+    </div>
+
+    <!-- Main content -->
+    <div class="main-content">
+      <div class="tableWrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Watch</th><th>Flight</th><th>Type</th><th>Time</th><th>Origin/Dest</th><th>Gate</th><th>Zone</th>
+              <th>WCHR</th><th>WCHC</th><th>Alert</th>
+              <th>Assignment</th><th>Pax</th><th>Ack</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script src="/config.js"></script>
@@ -346,6 +470,7 @@
         syncZoneDropdown_();
 
         await load(true);
+        renderAgentList();
       } catch (e) {
         setErr(e && e.message ? e.message : String(e));
       }
@@ -462,8 +587,8 @@
           <td class="num">${escapeHtml(r.wchr || "")}</td>
           <td class="num">${escapeHtml(r.wchc || "")}</td>
           <td class="alert">${escapeHtml(r.alert || "")}</td>
-          <td><input class="cell-input" data-key="${escapeAttr(r.key)}" data-field="assignment" value="${escapeAttr(r.assignment || "")}" /></td>
-          <td><input class="cell-input num" data-key="${escapeAttr(r.key)}" data-field="pax" value="${escapeAttr(r.pax || "")}" /></td>
+          <td>${renderAssignmentCell(r)}</td>
+          <td>${renderPaxStepper(r)}</td>
           <td><button class="quiet" onclick="ack('${escapeAttr(r.key)}')">Ack</button></td>
         `;
 
@@ -471,6 +596,7 @@
       });
 
       tb.querySelectorAll("input, select").forEach(el => {
+        if (el.classList.contains("pax-value")) return;
         el.addEventListener("input", onFieldInput);
         el.addEventListener("blur", onFieldBlur);
         el.addEventListener("change", onFieldChange);
@@ -675,6 +801,193 @@
         .replaceAll("'", "&#39;");
     }
     function escapeAttr(s) { return escapeHtml(s).replaceAll("\n", " "); }
+
+    /* ── Assignment Cell (chip-based with drop zone) ── */
+    function renderAssignmentCell(r) {
+      const key = escapeAttr(r.key);
+      const raw = r.assignment || "";
+      const names = raw ? raw.split(",").map(n => n.trim()).filter(Boolean) : [];
+
+      let chipsHtml = names.map((name, i) =>
+        `<span class="assign-chip">${escapeHtml(name)}<span class="chip-x" onclick="removeAssignment('${key}', ${i})" title="Remove">&times;</span></span>`
+      ).join("");
+
+      chipsHtml += `<span class="assign-add-btn" onclick="promptManualAssign('${key}')" title="Add agent">+</span>`;
+
+      return `<div class="assign-cell" data-key="${key}"
+                   ondragover="onAssignDragOver(event)"
+                   ondragleave="onAssignDragLeave(event)"
+                   ondrop="onAssignDrop(event)">${chipsHtml}</div>`;
+    }
+
+    function removeAssignment(key, index) {
+      const row = rows.find(r => String(r.key) === String(key));
+      if (!row) return;
+      const names = (row.assignment || "").split(",").map(n => n.trim()).filter(Boolean);
+      names.splice(index, 1);
+      const newVal = names.join(", ");
+      applyLocalFieldUpdate(key, "assignment", newVal);
+      rememberPendingEdit(key, "assignment", newVal);
+      saveField(key, "assignment", newVal);
+    }
+
+    function promptManualAssign(key) {
+      const name = prompt("Enter agent name:");
+      if (!name || !name.trim()) return;
+      const row = rows.find(r => String(r.key) === String(key));
+      const current = (row && row.assignment) || "";
+      const names = current ? current.split(",").map(n => n.trim()).filter(Boolean) : [];
+      const trimmed = name.trim();
+      if (!names.includes(trimmed)) names.push(trimmed);
+      const newVal = names.join(", ");
+      applyLocalFieldUpdate(key, "assignment", newVal);
+      rememberPendingEdit(key, "assignment", newVal);
+      saveField(key, "assignment", newVal);
+    }
+
+    /* ── Pax Stepper ─────────────────────────── */
+    function renderPaxStepper(r) {
+      const key = escapeAttr(r.key);
+      const paxVal = parseInt(r.pax, 10) || 0;
+      return `<div class="pax-stepper">
+        <button onclick="stepPax('${key}', -1)">&minus;</button>
+        <input class="pax-value" type="number" min="0"
+               data-key="${key}" data-field="pax"
+               value="${paxVal}"
+               oninput="onPaxDirectInput(this)"
+               onblur="onPaxBlur(this)" />
+        <button onclick="stepPax('${key}', 1)">+</button>
+      </div>`;
+    }
+
+    function stepPax(key, delta) {
+      const row = rows.find(r => String(r.key) === String(key));
+      if (!row) return;
+      const current = parseInt(row.pax, 10) || 0;
+      const newVal = Math.max(0, current + delta);
+      applyLocalFieldUpdate(key, "pax", String(newVal));
+      rememberPendingEdit(key, "pax", String(newVal));
+      saveField(key, "pax", String(newVal));
+    }
+
+    function onPaxDirectInput(el) {
+      typingUntil = Date.now() + 1200;
+      const key = el.getAttribute("data-key");
+      const val = el.value;
+      const timerKey = `${key}__pax`;
+      if (saveTimers.has(timerKey)) clearTimeout(saveTimers.get(timerKey));
+      saveTimers.set(timerKey, setTimeout(() => {
+        saveTimers.delete(timerKey);
+        const numVal = Math.max(0, parseInt(val, 10) || 0);
+        saveField(key, "pax", String(numVal));
+      }, 700));
+    }
+
+    function onPaxBlur(el) {
+      const key = el.getAttribute("data-key");
+      const timerKey = `${key}__pax`;
+      if (saveTimers.has(timerKey)) { clearTimeout(saveTimers.get(timerKey)); saveTimers.delete(timerKey); }
+      const val = Math.max(0, parseInt(el.value, 10) || 0);
+      saveField(key, "pax", String(val));
+    }
+
+    /* ── Drag & Drop ─────────────────────────── */
+    let draggedAgent = null;
+
+    function onAgentDragStart(event, agentName) {
+      draggedAgent = agentName;
+      event.dataTransfer.setData("text/plain", agentName);
+      event.dataTransfer.effectAllowed = "copy";
+      document.querySelectorAll(".assign-cell").forEach(el => {
+        el.style.outline = "1px dashed #bbb";
+      });
+    }
+
+    function onAgentDragEnd(event) {
+      draggedAgent = null;
+      document.querySelectorAll(".assign-cell").forEach(el => {
+        el.classList.remove("drag-over");
+        el.style.outline = "";
+      });
+    }
+
+    function onAssignDragOver(event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      event.currentTarget.classList.add("drag-over");
+    }
+
+    function onAssignDragLeave(event) {
+      event.currentTarget.classList.remove("drag-over");
+    }
+
+    function onAssignDrop(event) {
+      event.preventDefault();
+      event.currentTarget.classList.remove("drag-over");
+      const agentName = event.dataTransfer.getData("text/plain") || draggedAgent;
+      if (!agentName) return;
+      const key = event.currentTarget.getAttribute("data-key");
+      if (!key) return;
+      const row = rows.find(r => String(r.key) === String(key));
+      const currentAssignment = (row && row.assignment) || "";
+      const names = currentAssignment ? currentAssignment.split(",").map(n => n.trim()).filter(Boolean) : [];
+      if (names.includes(agentName)) return;
+      names.push(agentName);
+      const newVal = names.join(", ");
+      applyLocalFieldUpdate(key, "assignment", newVal);
+      rememberPendingEdit(key, "assignment", newVal);
+      saveField(key, "assignment", newVal);
+    }
+
+    /* ── Agent Sidebar Management ─────────────── */
+    const LS_AGENTS = "PRM_AGENTS";
+
+    function getAgents() {
+      try { return JSON.parse(localStorage.getItem(LS_AGENTS)) || []; }
+      catch { return []; }
+    }
+
+    function saveAgents(list) { localStorage.setItem(LS_AGENTS, JSON.stringify(list)); }
+
+    function renderAgentList() {
+      const container = document.getElementById("agentList");
+      if (!container) return;
+      const list = getAgents();
+      container.innerHTML = list.map((name, i) =>
+        `<div class="agent-tag" draggable="true"
+              ondragstart="onAgentDragStart(event, '${escapeAttr(name)}')"
+              ondragend="onAgentDragEnd(event)">
+          <span>${escapeHtml(name)}</span>
+          <span class="remove-agent" onclick="removeAgent(${i})" title="Remove">&times;</span>
+        </div>`
+      ).join("");
+    }
+
+    function addAgent() {
+      const input = document.getElementById("agentInput");
+      const name = (input.value || "").trim();
+      if (!name) return;
+      const list = getAgents();
+      if (list.includes(name)) { input.value = ""; return; }
+      list.push(name);
+      saveAgents(list);
+      input.value = "";
+      renderAgentList();
+    }
+
+    function removeAgent(index) {
+      const list = getAgents();
+      list.splice(index, 1);
+      saveAgents(list);
+      renderAgentList();
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById("agentSidebar");
+      const btn = sidebar.querySelector(".sidebar-toggle");
+      sidebar.classList.toggle("collapsed");
+      btn.innerHTML = sidebar.classList.contains("collapsed") ? "&raquo;" : "&laquo;";
+    }
 
     function onTimeWindowChange() {
       cache.clear();
