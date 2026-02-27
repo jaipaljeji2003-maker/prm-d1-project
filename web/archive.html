@@ -51,7 +51,14 @@
     .kpi {
       background: #fff; border: 1px solid #e1e1e1; border-radius: 10px;
       padding: 10px 16px; text-align: center; min-width: 100px;
+      transition: box-shadow 0.15s ease;
     }
+    .kpi:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .kpi.kpi-tot  { border-left: 4px solid #555; }
+    .kpi.kpi-wchr { border-left: 4px solid #1a73e8; }
+    .kpi.kpi-wchc { border-left: 4px solid #e67e22; }
+    .kpi.kpi-prm  { border-left: 4px solid #c0392b; }
+    .kpi.kpi-flt  { border-left: 4px solid #27ae60; }
     .kpi .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
     .kpi .value { font-size: 24px; font-weight: 700; margin-top: 2px; }
     .kpi .value.wchr { color: #1a73e8; }
@@ -84,22 +91,41 @@
     }
     #tbl th {
       position: sticky; top: 0; z-index: 2;
-      background: #f7f7f7; font-size: 11px; text-transform: uppercase;
-      padding: 7px 8px; border-bottom: 2px solid #ddd;
+      background: #f0f2f5; font-size: 11px; text-transform: uppercase;
+      padding: 9px 12px; border-bottom: 2px solid #d0d0d0;
+      border-right: 1px solid #e4e4e4;
       text-align: left; white-space: nowrap; cursor: pointer;
       user-select: none;
     }
-    #tbl th:hover { background: #eee; }
+    #tbl th:last-child { border-right: none; }
+    #tbl th:hover { background: #e4e8ee; }
     #tbl th .sort-arrow { font-size: 10px; margin-left: 3px; color: #aaa; }
     #tbl td {
-      padding: 5px 8px; border-bottom: 1px solid #f0f0f0;
+      padding: 8px 12px; border-bottom: 1px solid #e8e8e8;
+      border-right: 1px solid #f0f0f0;
       white-space: nowrap;
     }
-    #tbl .flt { font-weight: 700; }
+    #tbl td:last-child { border-right: none; }
+
+    /* Zebra striping */
+    #tbl tbody tr:nth-child(odd)  { background: #fff; }
+    #tbl tbody tr:nth-child(even) { background: #f9fafb; }
+    #tbl tbody tr:hover { background: #edf2fa; transition: background 0.15s ease; }
+
+    /* Sticky first column */
+    #tbl th:first-child, #tbl td:first-child {
+      position: sticky; left: 0; z-index: 3;
+      background: inherit; box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+    }
+    #tbl th:first-child { z-index: 4; background: #f0f2f5; }
+    #tbl tbody tr:hover td:first-child { background: #edf2fa; }
+
+    /* Column emphasis */
+    #tbl .flt { font-weight: 700; color: #1a1a2e; letter-spacing: 0.02em; }
     #tbl .arr { color: #155724; }
     #tbl .dep { color: #1a4d8f; }
-    #tbl .cnt { font-weight: 700; text-align: center; }
-    #tbl .cnt-hi { font-weight: 700; text-align: center; color: #c00; }
+    #tbl .cnt { font-weight: 700; text-align: center; color: #1a73e8; }
+    #tbl .cnt-hi { font-weight: 700; text-align: center; color: #fff; background: #c0392b; border-radius: 4px; }
     #tbl tr.match-hl { background: #fffde7; }
 
     .err { color: #b00020; font-weight: bold; padding: 4px 10px; display: none; }
@@ -110,6 +136,9 @@
     @media print {
       body { background: #fff; padding: 0; }
       .topbar, .col-picker, .login-overlay { display: none !important; }
+      #tbl tbody tr:nth-child(even) { background: #f5f5f5 !important; }
+      #tbl td, #tbl th { border-right: 1px solid #ddd !important; }
+      #tbl th:first-child, #tbl td:first-child { position: static; box-shadow: none; }
     }
 
     /* ── Login ────────────────────────────────── */
@@ -348,16 +377,16 @@
       const dateLabel = dateVal || "—";
 
       document.getElementById("summary").innerHTML = `
-        <div class="kpi">
+        <div class="kpi kpi-tot">
           <div class="label">Ops Date</div>
           <div class="value tot" style="font-size:18px;">${esc(dateLabel)}</div>
           <div class="sub">03:00 → 02:59</div>
         </div>
-        <div class="kpi"><div class="label">Total Flights</div><div class="value tot">${filtered.length}</div></div>
-        <div class="kpi"><div class="label">WCHR</div><div class="value wchr">${totalWCHR}</div></div>
-        <div class="kpi"><div class="label">WCHC</div><div class="value wchc">${totalWCHC}</div></div>
-        <div class="kpi"><div class="label">Total PRM</div><div class="value prm">${totalWCHR + totalWCHC}</div></div>
-        <div class="kpi"><div class="label">Flights w/ PRM</div><div class="value flt">${prmFlights}</div></div>
+        <div class="kpi kpi-tot"><div class="label">Total Flights</div><div class="value tot">${filtered.length}</div></div>
+        <div class="kpi kpi-wchr"><div class="label">WCHR</div><div class="value wchr">${totalWCHR}</div></div>
+        <div class="kpi kpi-wchc"><div class="label">WCHC</div><div class="value wchc">${totalWCHC}</div></div>
+        <div class="kpi kpi-prm"><div class="label">Total PRM</div><div class="value prm">${totalWCHR + totalWCHC}</div></div>
+        <div class="kpi kpi-flt"><div class="label">Flights w/ PRM</div><div class="value flt">${prmFlights}</div></div>
       `;
     }
 
