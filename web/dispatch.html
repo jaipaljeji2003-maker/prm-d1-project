@@ -97,6 +97,7 @@
     let rowsRequestMeta = null;
     let loadInFlight = null;
     let staleNotice = "";
+    let lastETag = "";  // ETag for conditional polling (304 support)
 
     function getTorontoParts(date = new Date()) {
       const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -275,16 +276,27 @@
           if (twFrom) url.searchParams.set("from", twFrom);
           if (twTo)   url.searchParams.set("to", twTo);
 
+          const hdrs = { "authorization": "Bearer " + token };
+          if (!force && lastETag) hdrs["if-none-match"] = lastETag;
+
           const res = await fetch(url.toString(), {
-            headers: { "authorization": "Bearer " + token },
+            headers: hdrs,
             signal: controller.signal,
           });
+
+          // 304 Not Modified — data unchanged, skip re-render
+          if (res.status === 304) return true;
+
           const data = await res.json();
           if (!data || !data.ok) {
             if ((data && data.error || "").toLowerCase().includes("expired")) return hardRedirectToLogin();
             setErr((data && data.error) || "Fetch failed");
             return false;
           }
+          // Store ETag for next conditional poll
+          const etag = res.headers.get("etag");
+          if (etag) lastETag = etag;
+
           rows = data.rows || [];
           const staleByHeader = res.headers.get("x-prm-stale") === "1";
           const staleByBody = !!(data && data.stale);

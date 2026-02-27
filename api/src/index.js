@@ -84,6 +84,43 @@ const ROLE_ACCESS = {
 const _patches = new Map(); // key → { patch, expAt }
 const PATCH_TTL_MS = 12_000;
 
+// ── In-memory flight cache (populated by cron, read by poll endpoints) ──
+// Eliminates D1 reads for /dispatch/rows and /lead/rows polling.
+let _flightCache = [];          // Array of flight row objects
+let _flightCacheAt = 0;         // timestamp when cache was last populated
+let _flightCacheETag = "";      // hash for conditional polling (ETag)
+const FLIGHT_CACHE_MAX_AGE = 90_000; // 90s — stale only if cron misses
+
+// ── Static-table cache (zone_overrides + us_airport_codes) ──
+// These rarely change — cache with 1-hour TTL to avoid querying every cron tick.
+let _zoneOverrides = null;      // Map<gate,zone> | null
+let _zoneOverridesAt = 0;
+let _usAirportCodes = null;     // Set<code> | null
+let _usAirportCodesAt = 0;
+const STATIC_CACHE_TTL = 3_600_000; // 1 hour
+
+async function getCachedZoneOverrides(env) {
+  if (_zoneOverrides && (Date.now() - _zoneOverridesAt) < STATIC_CACHE_TTL)
+    return _zoneOverrides;
+  const { results } = await env.DB.prepare(
+    "SELECT gate, zone FROM zone_overrides"
+  ).all();
+  _zoneOverrides = new Map(results.map(r => [r.gate, r.zone]));
+  _zoneOverridesAt = Date.now();
+  return _zoneOverrides;
+}
+
+async function getCachedUSCodes(env) {
+  if (_usAirportCodes && (Date.now() - _usAirportCodesAt) < STATIC_CACHE_TTL)
+    return _usAirportCodes;
+  const { results } = await env.DB.prepare(
+    "SELECT code FROM us_airport_codes"
+  ).all();
+  _usAirportCodes = new Set(results.map(r => r.code));
+  _usAirportCodesAt = Date.now();
+  return _usAirportCodes;
+}
+
 // ─────────────────────────────────────────────────────────────
 // § 2  CORE UTILITIES
 // ─────────────────────────────────────────────────────────────
@@ -98,7 +135,8 @@ const withCors = (res, origin = "*") => {
   const h = new Headers(res.headers);
   h.set("access-control-allow-origin", origin);
   h.set("access-control-allow-methods", "GET,POST,PATCH,OPTIONS");
-  h.set("access-control-allow-headers", "content-type,authorization");
+  h.set("access-control-allow-headers", "content-type,authorization,if-none-match");
+  h.set("access-control-expose-headers", "etag");
   h.set("access-control-max-age", "86400");
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
 };
@@ -656,17 +694,11 @@ async function syncFIDSToD1(env, arrivals, departures) {
   const nowIso = now.toISOString();
   const tz     = DEFAULT_TZ;
 
-  // ── Load zone overrides ──────────────────────────────────
-  const { results: ovRows } = await env.DB.prepare(
-    "SELECT gate, zone FROM zone_overrides"
-  ).all();
-  const zoneOverrides = new Map(ovRows.map(r => [r.gate, r.zone]));
+  // ── Load zone overrides (cached — 1hr TTL) ──────────────
+  const zoneOverrides = await getCachedZoneOverrides(env);
 
-  // ── Load US airport codes ────────────────────────────────
-  const { results: usRows } = await env.DB.prepare(
-    "SELECT code FROM us_airport_codes"
-  ).all();
-  const usMap = new Set(usRows.map(r => r.code));
+  // ── Load US airport codes (cached — 1hr TTL) ────────────
+  const usMap = await getCachedUSCodes(env);
 
   // ── Load ALL existing flights (key → row) ────────────────
   const { results: existing } = await env.DB.prepare("SELECT * FROM flights").all();
@@ -818,6 +850,16 @@ async function syncFIDSToD1(env, arrivals, departures) {
           isTrue(u.time_changed), u.time_delta_min
         );
 
+        // ── Skip UPDATE when FIDS data is unchanged ─────────
+        // Only write if gate/time/zone/origin actually changed from API.
+        const fidsChanged = anyNewChange
+          || (f.gate || "") !== (ex.gate || "")
+          || estIso !== (ex.time_est || "")
+          || schedIso !== (ex.sched || "")
+          || originOrDest !== (ex.origin_dest || "")
+          || f.flight !== (ex.flight || "");
+        if (!fidsChanged) continue;
+
         toUpdate.push(u);
       }
     }
@@ -877,8 +919,23 @@ async function syncFIDSToD1(env, arrivals, departures) {
       await env.DB.batch(batch.slice(i, i + 100));
   }
 
-  console.log(`[sync] inserted=${toInsert.length} updated=${toUpdate.length}`);
+  console.log(`[sync] inserted=${toInsert.length} updated=${toUpdate.length} skipped=${existing.length - toUpdate.length}`);
+
+  // ── Refresh in-memory flight cache after sync ───────────
+  // This is the ONLY place the cache is populated — poll endpoints read from it.
+  await refreshFlightCache(env);
+
   return { inserted: toInsert.length, updated: toUpdate.length };
+}
+
+/** Reload flight cache from D1 (called after FIDS sync and on cache miss). */
+async function refreshFlightCache(env) {
+  const { results } = await env.DB.prepare("SELECT * FROM flights").all();
+  _flightCache = results;
+  _flightCacheAt = Date.now();
+  // Simple ETag: row count + latest updated_at
+  const latest = results.reduce((max, r) => r.updated_at > max ? r.updated_at : max, "");
+  _flightCacheETag = `"${results.length}-${latest}"`;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -966,6 +1023,17 @@ async function nightlyArchive(env) {
 
 function setPatch(key, patch) {
   _patches.set(String(key), { patch, expAt: Date.now() + PATCH_TTL_MS });
+  // Bump ETag so other clients know data changed
+  _flightCacheETag = `"${_flightCache.length}-${new Date().toISOString()}"`;
+}
+
+/** Update the in-memory cache row with DB-level fields after a write. */
+function updateCacheRow(key, dbFields) {
+  const k = String(key);
+  const idx = _flightCache.findIndex(r => r.key === k);
+  if (idx >= 0) {
+    _flightCache[idx] = { ..._flightCache[idx], ...dbFields, updated_at: new Date().toISOString() };
+  }
 }
 
 function applyPatch(rowObj) {
@@ -1018,6 +1086,12 @@ async function handleValidate(req, env) {
 // ── Dispatch rows ─────────────────────────────────────────────
 
 async function handleDispatchRows(req, env) {
+  // ── ETag conditional polling — return 304 if nothing changed ──
+  const ifNoneMatch = req.headers.get("if-none-match") || "";
+  if (_flightCacheETag && ifNoneMatch === _flightCacheETag) {
+    return new Response(null, { status: 304, headers: { "ETag": _flightCacheETag } });
+  }
+
   const url      = new URL(req.url);
   const fromTime = url.searchParams.get("from") || "";
   const toTime   = url.searchParams.get("to")   || "";
@@ -1060,7 +1134,9 @@ async function handleDispatchRows(req, env) {
     })
     .sort((a, b) => new Date(a.timeEst).getTime() - new Date(b.timeEst).getTime());
 
-  return json({ ok: true, rows: out, generatedAt: new Date().toISOString() });
+  const res = json({ ok: true, rows: out, generatedAt: new Date().toISOString() });
+  if (_flightCacheETag) res.headers.set("ETag", _flightCacheETag);
+  return res;
 }
 
 // ── Dispatch update ───────────────────────────────────────────
@@ -1075,11 +1151,15 @@ async function handleDispatchUpdate(req, env) {
   const patch  = {};
 
   if (body.wchr !== undefined) {
-    // Track previous value
-    const { results } = await env.DB.prepare(
-      "SELECT wchr FROM flights WHERE key = ?"
-    ).bind(key).all();
-    const oldWchr = results[0]?.wchr ?? 0;
+    // Track previous value (read from cache first, then D1 fallback)
+    let cachedRow = _flightCache.find(r => r.key === key);
+    if (!cachedRow) {
+      const { results } = await env.DB.prepare(
+        "SELECT wchr, wchc FROM flights WHERE key = ?"
+      ).bind(key).all();
+      cachedRow = results[0];
+    }
+    const oldWchr = cachedRow?.wchr ?? 0;
     if (String(oldWchr) !== String(body.wchr)) {
       fields.push("prev_wchr=?"); vals.push(oldWchr);
     }
@@ -1088,10 +1168,14 @@ async function handleDispatchUpdate(req, env) {
   }
 
   if (body.wchc !== undefined) {
-    const { results } = await env.DB.prepare(
-      "SELECT wchc FROM flights WHERE key = ?"
-    ).bind(key).all();
-    const oldWchc = results[0]?.wchc ?? 0;
+    let cachedRow = _flightCache.find(r => r.key === key);
+    if (!cachedRow) {
+      const { results } = await env.DB.prepare(
+        "SELECT wchr, wchc FROM flights WHERE key = ?"
+      ).bind(key).all();
+      cachedRow = results[0];
+    }
+    const oldWchc = cachedRow?.wchc ?? 0;
     if (String(oldWchc) !== String(body.wchc)) {
       fields.push("prev_wchc=?"); vals.push(oldWchc);
     }
@@ -1113,6 +1197,13 @@ async function handleDispatchUpdate(req, env) {
     `UPDATE flights SET ${fields.join(",")} WHERE key=?`
   ).bind(...vals).run();
 
+  // Update in-memory cache with DB-level fields
+  const dbPatch = {};
+  if (body.wchr !== undefined)    dbPatch.wchr = body.wchr;
+  if (body.wchc !== undefined)    dbPatch.wchc = body.wchc;
+  if (body.comment !== undefined) dbPatch.comment = body.comment;
+  updateCacheRow(key, dbPatch);
+
   if (Object.keys(patch).length) setPatch(key, patch);
   return json({ ok: true });
 }
@@ -1128,6 +1219,7 @@ async function handleDispatchAck(req, env) {
     "UPDATE flights SET dispatch_ack=1, updated_at=? WHERE key=?"
   ).bind(new Date().toISOString(), key).run();
 
+  updateCacheRow(key, { dispatch_ack: 1 });
   setPatch(key, { alert: "", gateChanged: false, timeChanged: false, zoneChanged: false });
   return json({ ok: true });
 }
@@ -1145,6 +1237,12 @@ function handleLeadInit() {
 // ── Lead rows ─────────────────────────────────────────────────
 
 async function handleLeadRows(req, env) {
+  // ── ETag conditional polling — return 304 if nothing changed ──
+  const ifNoneMatch = req.headers.get("if-none-match") || "";
+  if (_flightCacheETag && ifNoneMatch === _flightCacheETag) {
+    return new Response(null, { status: 304, headers: { "ETag": _flightCacheETag } });
+  }
+
   const url        = new URL(req.url);
   const zoneWanted = normalizeZone(url.searchParams.get("zone") || "TB");
   const typeFilter = String(url.searchParams.get("type") || "ALL").toUpperCase();
@@ -1214,7 +1312,9 @@ async function handleLeadRows(req, env) {
   }
 
   out.sort((a, b) => new Date(a.timeEst).getTime() - new Date(b.timeEst).getTime());
-  return json({ ok: true, rows: out, generatedAt: new Date().toISOString() });
+  const res = json({ ok: true, rows: out, generatedAt: new Date().toISOString() });
+  if (_flightCacheETag) res.headers.set("ETag", _flightCacheETag);
+  return res;
 }
 
 // ── Lead update ───────────────────────────────────────────────
@@ -1256,6 +1356,13 @@ async function handleLeadUpdate(req, env, user) {
     `UPDATE flights SET ${fields.join(",")} WHERE key=?`
   ).bind(...vals).run();
 
+  // Update in-memory cache with DB-level fields
+  const dbPatch = {};
+  if (body.assignment !== undefined) dbPatch.assignment = body.assignment;
+  if (body.pax !== undefined)        dbPatch.pax_assisted = body.pax;
+  if (body.watchlist !== undefined)   dbPatch.watchlist = (body.watchlist === true || body.watchlist === "true" || body.watchlist === 1) ? "1" : "";
+  updateCacheRow(key, dbPatch);
+
   if (Object.keys(patch).length) setPatch(key, patch);
   return json({ ok: true });
 }
@@ -1275,11 +1382,15 @@ async function handleLeadAck(req, env) {
   const ackCol = BOARD_ACK_COL[board];
   const nowIso = new Date().toISOString();
 
-  // Fetch the row to check ZonePrev carry-over
-  const { results } = await env.DB.prepare(
-    "SELECT zone_prev, zone_current FROM flights WHERE key=? LIMIT 1"
-  ).bind(key).all();
-  const row = results[0];
+  // Check ZonePrev carry-over from cache (avoid D1 read)
+  let row = _flightCache.find(r => r.key === key);
+  if (!row) {
+    // Cache miss — fall back to D1
+    const { results } = await env.DB.prepare(
+      "SELECT zone_prev, zone_current FROM flights WHERE key=? LIMIT 1"
+    ).bind(key).all();
+    row = results[0];
+  }
 
   // If zone_prev matches the ACKing zone and flight has moved away,
   // clear zone_prev (mirrors GAS ackFlight / setBoardAckByKey_)
@@ -1294,17 +1405,27 @@ async function handleLeadAck(req, env) {
 
   await env.DB.prepare(sql).bind(nowIso, key).run();
 
+  const ackPatch = { [ackCol]: 1 };
+  if (clearZonePrev) ackPatch.zone_prev = "";
+  updateCacheRow(key, ackPatch);
   setPatch(key, { alert: "", gateChanged: false, timeChanged: false, zoneChanged: false });
   return json({ ok: true });
 }
 
-// ── D1 query helper ───────────────────────────────────────────
+// ── D1 query helper (uses in-memory cache when available) ─────
 
 async function getFlightsInWindow(env, startISO, endISO) {
-  const { results } = await env.DB.prepare(
-    "SELECT * FROM flights WHERE time_est >= ? AND time_est <= ? ORDER BY time_est ASC"
-  ).bind(startISO, endISO).all();
-  return results;
+  // If cache is warm (populated by last cron sync), filter in-memory — ZERO D1 reads
+  if (_flightCache.length > 0 && (Date.now() - _flightCacheAt) < FLIGHT_CACHE_MAX_AGE) {
+    return _flightCache.filter(r =>
+      r.time_est >= startISO && r.time_est <= endISO
+    );
+  }
+  // Cache miss (cold start / isolate recycled) — query D1 and populate cache
+  await refreshFlightCache(env);
+  return _flightCache.filter(r =>
+    r.time_est >= startISO && r.time_est <= endISO
+  );
 }
 
 // ─────────────────────────────────────────────────────────────

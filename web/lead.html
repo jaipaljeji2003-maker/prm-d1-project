@@ -288,6 +288,7 @@
 
     let pollTimer = null;
     let backoffMs = 0;
+    let lastETag = "";  // ETag for conditional polling (304 support)
 
     const urlParams = new URLSearchParams(window.location.search);
     const zoneParam = urlParams.get("zone");
@@ -500,11 +501,20 @@
         if (twFrom) url.searchParams.set("from", twFrom);
         if (twTo)   url.searchParams.set("to", twTo);
 
-        const res = await fetch(url.toString(), {
-          headers: { "authorization": "Bearer " + token }
-        });
+        const hdrs = { "authorization": "Bearer " + token };
+        if (!force && lastETag) hdrs["if-none-match"] = lastETag;
+
+        const res = await fetch(url.toString(), { headers: hdrs });
+
+        // 304 Not Modified — data unchanged, skip processing
+        if (res.status === 304) { setLoading(false); return true; }
+
         const data = await res.json();
         if (myReq !== requestSeq) return true;
+
+        // Store ETag for next conditional poll
+        const etag = res.headers.get("etag");
+        if (etag) lastETag = etag;
 
         if (!data || !data.ok) {
           const msg = (data && data.error) || "Fetch failed";
