@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PRM Pre-Alerts — Management</title>
+  <title>WINGS Pre-Alerts</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -160,9 +160,47 @@
       border-radius: 8px; font-size: 12px; margin-bottom: 10px;
     }
     .login-box .login-err:empty { display: none; }
+
+    /* ── WINGS Nav (inline for prealert) ─────── */
+    .wings-nav { display:flex; align-items:center; background:#111827; color:#fff; padding:0 16px; height:46px; margin:-10px -14px 12px -14px; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; position:sticky; top:-10px; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+    .wings-nav-brand { display:flex; align-items:center; gap:8px; margin-right:6px; padding-right:14px; border-right:1px solid rgba(255,255,255,.15); text-decoration:none; color:#fff; }
+    .wings-nav-brand svg { width:26px; height:26px; flex-shrink:0; }
+    .wings-nav-brand span { font-size:15px; font-weight:800; letter-spacing:2px; background:linear-gradient(135deg,#7C5CFF,#00D4FF); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .wings-nav-links { display:flex; align-items:center; gap:2px; flex:1; padding-left:6px; }
+    .wings-nav-link { padding:6px 14px; border-radius:999px; font-size:13px; font-weight:600; color:rgba(255,255,255,.65); text-decoration:none; transition:background .15s,color .15s; white-space:nowrap; }
+    .wings-nav-link:hover { background:rgba(255,255,255,.1); color:#fff; }
+    .wings-nav-link.active { background:rgba(124,92,255,.25); color:#fff; }
+    .wings-nav-right { display:flex; align-items:center; gap:10px; margin-left:auto; }
+    .wings-nav-user { font-size:12px; color:rgba(255,255,255,.55); white-space:nowrap; }
+    .wings-nav-logout { padding:5px 12px; border-radius:999px; font-size:12px; font-weight:600; color:rgba(255,255,255,.7); background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); cursor:pointer; transition:background .15s; text-decoration:none; }
+    .wings-nav-logout:hover { background:rgba(255,77,109,.25); color:#fff; }
   </style>
 </head>
 <body>
+  <nav class="wings-nav" id="wingsNav">
+    <a href="/" class="wings-nav-brand">
+      <svg viewBox="0 0 64 64" fill="none"><defs><linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7C5CFF"/><stop offset="100%" stop-color="#00D4FF"/></linearGradient></defs><path d="M8 40C12 28 24 16 56 10C48 18 38 28 34 38C38 30 44 22 56 10C36 20 22 32 14 44L8 40Z" fill="url(#wg)" opacity=".9"/><path d="M12 46C16 36 26 26 52 20C44 28 36 36 32 44C36 38 42 30 52 20C34 30 24 40 18 50L12 46Z" fill="url(#wg)" opacity=".55"/><circle cx="32" cy="52" r="3.5" fill="url(#wg)" opacity=".7"/></svg>
+      <span>WINGS</span>
+    </a>
+    <div class="wings-nav-links">
+      <a href="/dispatch.html" class="wings-nav-link" id="navDispatch">Dispatch</a>
+      <a href="/lead.html" class="wings-nav-link" id="navLead">Lead</a>
+      <a href="/prealert.html" class="wings-nav-link active">Pre-Alerts</a>
+      <a href="/archive.html" class="wings-nav-link" id="navArchive">Archive</a>
+    </div>
+    <div class="wings-nav-right">
+      <span class="wings-nav-user" id="navUser"></span>
+      <a href="#" class="wings-nav-logout" onclick="localStorage.removeItem('PRM_TOKEN');localStorage.removeItem('PRM_USER');location.href='/'; return false;">Logout</a>
+    </div>
+  </nav>
+  <script>
+    (function(){
+      try {
+        const u = JSON.parse(localStorage.getItem("PRM_USER") || "{}");
+        if (u.username) document.getElementById("navUser").textContent = u.username;
+      } catch {}
+    })();
+  </script>
 
   <!-- Login overlay (mgmt only) -->
   <div class="login-overlay" id="loginOverlay">

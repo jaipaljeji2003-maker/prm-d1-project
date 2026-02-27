@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PRM Lead</title>
+  <title>WINGS Lead</title>
   <link rel="stylesheet" href="/style.css" />
   <style>
     /* ── Agent Sidebar ──────────────────────── */
@@ -15,7 +15,10 @@
       padding: 10px;
       border-radius: 10px 0 0 10px;
       display: flex; flex-direction: column;
-      max-height: calc(100vh - 200px);
+      position: sticky;
+      top: 12px;
+      align-self: flex-start;
+      max-height: calc(100vh - 24px);
       overflow-y: auto;
     }
     .agent-sidebar.collapsed { width: 36px; min-width: 36px; padding: 10px 4px; }
@@ -84,6 +87,24 @@
     }
     .assign-add-btn:hover { color: #1a73e8; }
 
+    /* ── Touch Drag Ghost ──────────────────── */
+    .touch-drag-ghost {
+      position: fixed;
+      z-index: 9999;
+      pointer-events: none;
+      padding: 6px 14px;
+      background: #e8f0fe;
+      border: 2px solid #1a73e8;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a3a6b;
+      box-shadow: 0 4px 16px rgba(0,0,0,.18);
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+      opacity: 0.92;
+    }
+
     /* ── Pax Stepper ────────────────────────── */
     .pax-stepper {
       display: inline-flex; align-items: center;
@@ -113,9 +134,33 @@
   </style>
 </head>
 <body>
+  <nav class="wings-nav" id="wingsNav">
+    <a href="/" class="wings-nav-brand">
+      <svg viewBox="0 0 64 64" fill="none"><defs><linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7C5CFF"/><stop offset="100%" stop-color="#00D4FF"/></linearGradient></defs><path d="M8 40C12 28 24 16 56 10C48 18 38 28 34 38C38 30 44 22 56 10C36 20 22 32 14 44L8 40Z" fill="url(#wg)" opacity=".9"/><path d="M12 46C16 36 26 26 52 20C44 28 36 36 32 44C36 38 42 30 52 20C34 30 24 40 18 50L12 46Z" fill="url(#wg)" opacity=".55"/><circle cx="32" cy="52" r="3.5" fill="url(#wg)" opacity=".7"/></svg>
+      <span>WINGS</span>
+    </a>
+    <div class="wings-nav-links">
+      <a href="/dispatch.html" class="wings-nav-link" id="navDispatch">Dispatch</a>
+      <a href="/lead.html" class="wings-nav-link active">Lead</a>
+      <a href="/prealert.html" class="wings-nav-link" id="navMgmt">Pre-Alerts</a>
+      <a href="/archive.html" class="wings-nav-link" id="navArchive">Archive</a>
+    </div>
+    <div class="wings-nav-right">
+      <span class="wings-nav-user" id="navUser"></span>
+      <a href="#" class="wings-nav-logout" onclick="logout(); return false;">Logout</a>
+    </div>
+  </nav>
+  <script>
+    (function(){
+      try {
+        const u = JSON.parse(localStorage.getItem("PRM_USER") || "{}");
+        if (u.username) document.getElementById("navUser").textContent = u.username;
+      } catch {}
+    })();
+  </script>
+
   <div class="topbar">
     <button onclick="manualRefresh()">Refresh</button>
-    <button onclick="logout()">Logout</button>
 
     <div class="filters" id="zoneControls" style="flex: 1;">
       <button class="pill active" id="zTB" onclick="setZone('TB')">TB</button>
@@ -949,6 +994,131 @@
       saveField(key, "assignment", newVal);
     }
 
+    /* ── Touch Drag-Drop (iPad / touch devices) ── */
+    let touchDragGhost = null;
+    let touchDragAgent = null;
+    let touchDragOver  = null;   // currently hovered .assign-cell
+    let touchAutoScrollRAF = null;
+
+    function onAgentTouchStart(e, agentName) {
+      // Only single-finger touch
+      if (e.touches.length !== 1) return;
+      e.preventDefault();   // prevent scroll while starting drag
+
+      touchDragAgent = agentName;
+
+      // Create ghost element
+      touchDragGhost = document.createElement("div");
+      touchDragGhost.className = "touch-drag-ghost";
+      touchDragGhost.textContent = agentName;
+      document.body.appendChild(touchDragGhost);
+
+      const t = e.touches[0];
+      touchDragGhost.style.left = t.clientX + "px";
+      touchDragGhost.style.top  = t.clientY + "px";
+
+      // Highlight all drop zones
+      document.querySelectorAll(".assign-cell").forEach(el => {
+        el.style.outline = "1px dashed #bbb";
+      });
+
+      // Start auto-scroll loop
+      startTouchAutoScroll();
+    }
+
+    function onDocumentTouchMove(e) {
+      if (!touchDragAgent || !touchDragGhost) return;
+      e.preventDefault();
+
+      const t = e.touches[0];
+      touchDragGhost.style.left = t.clientX + "px";
+      touchDragGhost.style.top  = t.clientY + "px";
+
+      // Temporarily hide ghost so elementFromPoint sees the cell beneath
+      touchDragGhost.style.display = "none";
+      const elUnder = document.elementFromPoint(t.clientX, t.clientY);
+      touchDragGhost.style.display = "";
+
+      // Find the closest .assign-cell ancestor
+      const cell = elUnder ? elUnder.closest(".assign-cell") : null;
+
+      if (touchDragOver && touchDragOver !== cell) {
+        touchDragOver.classList.remove("drag-over");
+      }
+      if (cell) {
+        cell.classList.add("drag-over");
+      }
+      touchDragOver = cell;
+
+      // Store last touch position for auto-scroll
+      window._lastTouchY = t.clientY;
+    }
+
+    function onDocumentTouchEnd(e) {
+      if (!touchDragAgent) return;
+
+      stopTouchAutoScroll();
+
+      // Determine drop target
+      if (touchDragOver) {
+        touchDragOver.classList.remove("drag-over");
+        const key = touchDragOver.getAttribute("data-key");
+        if (key && touchDragAgent) {
+          const row = rows.find(r => String(r.key) === String(key));
+          const currentAssignment = (row && row.assignment) || "";
+          const names = currentAssignment ? currentAssignment.split(",").map(n => n.trim()).filter(Boolean) : [];
+          if (!names.includes(touchDragAgent)) {
+            names.push(touchDragAgent);
+            const newVal = names.join(", ");
+            applyLocalFieldUpdate(key, "assignment", newVal);
+            rememberPendingEdit(key, "assignment", newVal);
+            saveField(key, "assignment", newVal);
+          }
+        }
+      }
+
+      // Cleanup
+      if (touchDragGhost) { touchDragGhost.remove(); touchDragGhost = null; }
+      touchDragAgent = null;
+      touchDragOver = null;
+      document.querySelectorAll(".assign-cell").forEach(el => {
+        el.classList.remove("drag-over");
+        el.style.outline = "";
+      });
+    }
+
+    // Auto-scroll the table when dragging near the edges
+    function startTouchAutoScroll() {
+      const tableWrap = document.querySelector(".tableWrap");
+      if (!tableWrap) return;
+
+      function scrollLoop() {
+        const y = window._lastTouchY;
+        if (y == null) { touchAutoScrollRAF = requestAnimationFrame(scrollLoop); return; }
+
+        const rect = tableWrap.getBoundingClientRect();
+        const edgeZone = 60;
+
+        if (y > rect.bottom - edgeZone && y < rect.bottom + 20) {
+          tableWrap.scrollTop += 6;
+        } else if (y < rect.top + edgeZone && y > rect.top - 20) {
+          tableWrap.scrollTop -= 6;
+        }
+        touchAutoScrollRAF = requestAnimationFrame(scrollLoop);
+      }
+      touchAutoScrollRAF = requestAnimationFrame(scrollLoop);
+    }
+
+    function stopTouchAutoScroll() {
+      if (touchAutoScrollRAF) { cancelAnimationFrame(touchAutoScrollRAF); touchAutoScrollRAF = null; }
+      window._lastTouchY = null;
+    }
+
+    // Attach global touch handlers once
+    document.addEventListener("touchmove", onDocumentTouchMove, { passive: false });
+    document.addEventListener("touchend", onDocumentTouchEnd);
+    document.addEventListener("touchcancel", onDocumentTouchEnd);
+
     /* ── Agent Sidebar Management ─────────────── */
     const LS_AGENTS = "PRM_AGENTS";
 
@@ -966,7 +1136,8 @@
       container.innerHTML = list.map((name, i) =>
         `<div class="agent-tag" draggable="true"
               ondragstart="onAgentDragStart(event, '${escapeAttr(name)}')"
-              ondragend="onAgentDragEnd(event)">
+              ondragend="onAgentDragEnd(event)"
+              ontouchstart="onAgentTouchStart(event, '${escapeAttr(name)}')">
           <span>${escapeHtml(name)}</span>
           <span class="remove-agent" onclick="removeAgent(${i})" title="Remove">&times;</span>
         </div>`

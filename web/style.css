@@ -51,4 +51,102 @@ tbody tr:nth-child(even) { background: #fcfcfc; }
 .card { max-width: 420px; border:1px solid #ddd; padding:16px; border-radius: 10px; }
 .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
 
-@media (max-width: 900px) { th, td { padding: 6px; } }
+/* ── WINGS Navigation Bar ──────────────────── */
+.wings-nav {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: #111827;
+  color: #fff;
+  padding: 0 16px;
+  height: 46px;
+  margin: -12px -12px 12px -12px;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  position: sticky;
+  top: -12px;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.wings-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+  padding-right: 14px;
+  border-right: 1px solid rgba(255,255,255,.15);
+  text-decoration: none;
+  color: #fff;
+}
+.wings-nav-brand svg { width: 26px; height: 26px; flex-shrink: 0; }
+.wings-nav-brand span {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #7C5CFF, #00D4FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.wings-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  padding-left: 6px;
+}
+.wings-nav-link {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,.65);
+  text-decoration: none;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.wings-nav-link:hover {
+  background: rgba(255,255,255,.1);
+  color: #fff;
+}
+.wings-nav-link.active {
+  background: rgba(124,92,255,.25);
+  color: #fff;
+}
+.wings-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.wings-nav-user {
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
+  white-space: nowrap;
+}
+.wings-nav-logout {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,.7);
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  cursor: pointer;
+  transition: background .15s;
+  text-decoration: none;
+}
+.wings-nav-logout:hover {
+  background: rgba(255,77,109,.25);
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  th, td { padding: 6px; }
+  .wings-nav { padding: 0 10px; gap: 0; }
+  .wings-nav-link { padding: 6px 10px; font-size: 12px; }
+  .wings-nav-user { display: none; }
+}
+@media (max-width: 600px) {
+  .wings-nav-brand span { display: none; }
+  .wings-nav-link { padding: 5px 8px; font-size: 11px; }
+}
