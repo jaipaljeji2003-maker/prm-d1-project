@@ -1,20 +1,21 @@
-body { font-family: Arial, sans-serif; margin: 12px; background: #fdfdfd; color: #1a1a1a; }
-button { padding: 10px 14px; cursor: pointer; border-radius: 8px; border: 1px solid #cfcfcf; background: #fff; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 12px; background: #f5f6f8; color: #1a1a1a; }
+button { padding: 8px 14px; cursor: pointer; border-radius: 8px; border: 1px solid #d4d4d4; background: #fff; font-size: 13px; transition: background .15s, border-color .15s; }
 button:hover { background: #f4f4f4; }
 input, textarea, select { box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid #cfcfcf; }
 textarea { resize: vertical; min-height: 36px; }
+td input, td textarea, td select, .cell-input { padding: 5px 8px; border-radius: 6px; font-size: 13px; }
 .hint { color:#666; font-size: 12px; margin-top: 4px; }
 .err { color:#b00020; font-size: 13px; margin-top: 8px; }
 .ok { color:#0a7a2f; font-size: 13px; margin-top: 8px; }
-.topbar { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; padding: 6px 0 2px; }
-.searchWrap { display:flex; flex-direction:column; gap:4px; min-width: 320px; flex: 1; }
+.topbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding: 8px 0; }
+.searchWrap { display:flex; flex-direction:column; gap:4px; min-width: 200px; max-width: 400px; flex: 1; }
 .filters { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.pill { border:1px solid #bbb; background:#fff; border-radius: 999px; padding:10px 14px; font-weight:700; }
+.pill { border:1px solid #bbb; background:#fff; border-radius: 999px; padding: 7px 12px; font-weight:600; font-size: 13px; transition: background .15s, border-color .15s; }
 .pill.active { background:#111; color:#fff; border-color:#111; }
 .loading { font-size:12px; color:#444; padding:6px 10px; position: fixed; top: 12px; right: 12px; background: #fff; border: 1px solid #ddd; border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); z-index: 5; }
 .hidden { display:none !important; }
 
-.summary { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top: 12px; }
+.summary { display:flex; gap:12px; flex-wrap:wrap; align-items:stretch; margin-top: 12px; }
 .summaryCard { border:1px solid #e1e1e1; background:#fff; border-radius: 12px; padding: 10px 14px; min-width: 140px; }
 .summaryTitle { font-size: 12px; color:#555; text-transform: uppercase; letter-spacing: 0.04em; }
 .summaryValue { font-size: 22px; font-weight: 700; margin-top: 4px; }
@@ -26,12 +27,13 @@ textarea { resize: vertical; min-height: 36px; }
 .legendItem.arr { background: #e9f7ef; border-color:#b9e2cc; }
 .legendItem.dep { background: #fdecea; border-color:#f4c7c3; }
 
-.tableWrap { margin-top: 12px; border: 1px solid #e1e1e1; border-radius: 12px; overflow: auto; background: #fff; }
+.tableWrap { margin-top: 12px; border: 1px solid #e1e1e1; border-radius: 12px; overflow: auto; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
 table { width: 100%; border-collapse: collapse; }
-th, td { border-bottom: 1px solid #eee; border-right: 1px solid #eee; padding: 10px 8px; vertical-align: top; }
+th, td { border-bottom: 1px solid #eee; border-right: 1px solid #eee; padding: 7px 8px; vertical-align: middle; }
 th:last-child, td:last-child { border-right: none; }
-th { position: sticky; top: 0; background: #f7f7f7; z-index: 2; text-transform: uppercase; font-size: 12px; letter-spacing: 0.03em; }
-tbody tr:nth-child(even) { background: #fcfcfc; }
+th { position: sticky; top: 0; background: #f4f5f7; z-index: 2; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; color: #555; font-weight: 600; white-space: nowrap; }
+tbody tr:nth-child(even) { background: #f9fafb; }
+tbody tr:hover { background: #f0f4ff; }
 
 .small { font-size: 12px; color:#333; }
 .alert { font-weight: 700; }
@@ -42,8 +44,8 @@ tbody tr:nth-child(even) { background: #fcfcfc; }
 .empty { text-align: center; padding: 24px 12px; color: #666; font-size: 13px; }
 .quiet { font-weight: 600; }
 
-.cell-gate-changed, .cell-gatechg { background: #fff2cc; font-weight: 700; }
-.cell-time-changed, .cell-timechg { background: #d9e1f2; font-weight: 700; }
+.cell-gate-changed, .cell-gatechg { background: #fff2cc; font-weight: 700; border-left: 3px solid #e6b800; }
+.cell-time-changed, .cell-timechg { background: #d9e1f2; font-weight: 700; border-left: 3px solid #4a6fa5; }
 
 .type-arr { background: #e9f7ef; font-weight: 700; text-align:center; }
 .type-dep { background: #fdecea; font-weight: 700; text-align:center; }

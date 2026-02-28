@@ -16,9 +16,9 @@
       border-radius: 10px 0 0 10px;
       display: flex; flex-direction: column;
       position: sticky;
-      top: 12px;
+      top: 58px;
       align-self: flex-start;
-      max-height: calc(100vh - 24px);
+      max-height: calc(100vh - 70px);
       overflow-y: auto;
     }
     .agent-sidebar.collapsed { width: 36px; min-width: 36px; padding: 10px 4px; }
@@ -173,19 +173,19 @@
       white-space: nowrap;
     }
     .work-zone-change {
-      padding: 3px 8px; border-radius: 999px; font-size: 11px;
-      background: rgba(255,255,255,.2); color: #fff; border: 1px solid rgba(255,255,255,.3);
-      cursor: pointer; font-weight: 600;
+      padding: 3px 10px; border-radius: 999px; font-size: 11px;
+      background: #f3efff; color: #7C5CFF; border: 1px solid #d4c8ff;
+      cursor: pointer; font-weight: 600; transition: background .15s;
     }
-    .work-zone-change:hover { background: rgba(255,255,255,.35); }
+    .work-zone-change:hover { background: #e8e0ff; }
 
     /* ── Filter Layout (two rows) ──────────── */
     .topbar-primary {
-      display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 0 4px;
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 0 4px;
     }
     .topbar-filters {
       display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-      padding: 4px 0 2px; font-size: 12px;
+      padding: 4px 0 6px; font-size: 12px;
     }
     .filter-group {
       display: flex; gap: 4px; align-items: center;
