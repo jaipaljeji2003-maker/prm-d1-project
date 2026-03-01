@@ -1538,6 +1538,87 @@ export default {
         return withCors(json({ ok: true, ...result }), origin);
       }
 
+      // ── Admin: manual archive trigger ───────────────────────
+      if (path === "/admin/archive" && req.method === "POST") {
+        await requireAuth(req, env, "mgmt");
+        const result = await nightlyArchive(env);
+        return withCors(json({ ok: true, ...result }), origin);
+      }
+
+      // ── Admin: archive a specific ops-date ──────────────────
+      if (path === "/admin/archive-date" && req.method === "POST") {
+        await requireAuth(req, env, "mgmt");
+        const { opsDate } = await req.json();
+        if (!opsDate || !/^\d{4}-\d{2}-\d{2}$/.test(opsDate))
+          return withCors(json({ ok: false, error: "opsDate required (YYYY-MM-DD)" }, { status: 400 }), origin);
+
+        const tz = DEFAULT_TZ;
+        const [y, m, d] = opsDate.split("-").map(Number);
+        const archiveBase = { year: y, month: m, day: d };
+        const archStart = zonedTimeToUtc({ ...archiveBase, hour: 3, minute: 0, second: 0 }, tz);
+        const archEnd   = zonedTimeToUtc({ ...addDaysLocal(archiveBase, 1, tz), hour: 2, minute: 59, second: 59 }, tz);
+        archEnd.setUTCMilliseconds(999);
+
+        const opsDateStr = opsDate;
+
+        const { results } = await env.DB.prepare(
+          "SELECT * FROM flights WHERE time_est >= ? AND time_est <= ?"
+        ).bind(archStart.toISOString(), archEnd.toISOString()).all();
+
+        if (!results.length)
+          return withCors(json({ ok: true, archived: 0, note: "no flights in window",
+            window: { start: archStart.toISOString(), end: archEnd.toISOString() } }), origin);
+
+        await env.DB.prepare("DELETE FROM archive WHERE ops_date = ?").bind(opsDateStr).run();
+
+        const INS = env.DB.prepare("INSERT INTO archive (ops_date, flight_data) VALUES (?, ?)");
+        const batch = results.map(r => INS.bind(opsDateStr, JSON.stringify(r)));
+        for (let i = 0; i < batch.length; i += 100)
+          await env.DB.batch(batch.slice(i, i + 100));
+
+        await env.DB.prepare(
+          "DELETE FROM flights WHERE time_est >= ? AND time_est <= ?"
+        ).bind(archStart.toISOString(), archEnd.toISOString()).run();
+
+        return withCors(json({ ok: true, opsDate: opsDateStr, archived: results.length,
+          window: { start: archStart.toISOString(), end: archEnd.toISOString() } }), origin);
+      }
+
+      // ── Admin: debug — check flights in a date window ───────
+      if (path === "/admin/debug-flights" && req.method === "GET") {
+        await requireAuth(req, env, "mgmt");
+        const url = new URL(req.url);
+        const opsDate = url.searchParams.get("opsDate");
+        if (!opsDate) return withCors(json({ ok: false, error: "?opsDate=YYYY-MM-DD required" }, { status: 400 }), origin);
+
+        const tz = DEFAULT_TZ;
+        const [y, m, d] = opsDate.split("-").map(Number);
+        const archiveBase = { year: y, month: m, day: d };
+        const archStart = zonedTimeToUtc({ ...archiveBase, hour: 3, minute: 0, second: 0 }, tz);
+        const archEnd   = zonedTimeToUtc({ ...addDaysLocal(archiveBase, 1, tz), hour: 2, minute: 59, second: 59 }, tz);
+        archEnd.setUTCMilliseconds(999);
+
+        const { results } = await env.DB.prepare(
+          "SELECT key, time_est, flight, type FROM flights WHERE time_est >= ? AND time_est <= ? LIMIT 20"
+        ).bind(archStart.toISOString(), archEnd.toISOString()).all();
+
+        const totalCount = await env.DB.prepare(
+          "SELECT COUNT(*) as cnt FROM flights WHERE time_est >= ? AND time_est <= ?"
+        ).bind(archStart.toISOString(), archEnd.toISOString()).first();
+
+        const archiveCount = await env.DB.prepare(
+          "SELECT COUNT(*) as cnt FROM archive WHERE ops_date = ?"
+        ).bind(opsDate).first();
+
+        return withCors(json({
+          ok: true, opsDate,
+          window: { start: archStart.toISOString(), end: archEnd.toISOString() },
+          flightsInWindow: totalCount?.cnt || 0,
+          archivedRows: archiveCount?.cnt || 0,
+          sampleFlights: results
+        }), origin);
+      }
+
       return withCors(json({ ok: false, error: "Not found" }, { status: 404 }), origin);
 
     } catch (err) {
