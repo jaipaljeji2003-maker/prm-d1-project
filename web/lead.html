@@ -6,17 +6,19 @@
   <title>WINGS Lead</title>
   <link rel="stylesheet" href="/style.css" />
   <style>
-    /* ── Page Layout (dashboard flex) ────────── */
-    .page-layout { flex: 1; overflow: hidden; display: flex; gap: 0; }
-
     /* ── Agent Sidebar ──────────────────────── */
+    .page-layout { display: flex; gap: 0; }
     .agent-sidebar {
       width: 200px; min-width: 200px;
-      border-right: 1px solid #e2e6ed;
-      background: #fff;
+      border-right: 1px solid #e1e1e1;
+      background: #fafafa;
       padding: 10px;
       border-radius: 10px 0 0 10px;
       display: flex; flex-direction: column;
+      position: sticky;
+      top: 58px;
+      align-self: flex-start;
+      max-height: calc(100vh - 70px);
       overflow-y: auto;
     }
     .agent-sidebar.collapsed { width: 36px; min-width: 36px; padding: 10px 4px; }
@@ -28,8 +30,8 @@
       margin-bottom: 8px;
     }
     .sidebar-header h3 {
-      font-size: 13px; text-transform: uppercase; color: #00A3CC;
-      letter-spacing: .06em; margin: 0; font-weight: 700;
+      font-size: 13px; text-transform: uppercase; color: #555;
+      letter-spacing: 0.04em; margin: 0;
     }
     .sidebar-toggle {
       padding: 2px 6px; font-size: 14px; border: none;
@@ -38,28 +40,28 @@
     .sidebar-add { display: flex; gap: 4px; margin-bottom: 8px; }
     .sidebar-add input {
       flex: 1; padding: 6px 8px; font-size: 12px; min-width: 0;
-      border: 1px solid #d4d4d8; border-radius: 6px; background: #fff;
+      border: 1px solid #ccc; border-radius: 6px;
     }
     .sidebar-add button {
       padding: 6px 10px; font-size: 12px; white-space: nowrap;
-      border: 1px solid #d4d4d8; border-radius: 6px; background: #fff; cursor: pointer;
+      border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer;
     }
-    .sidebar-add button:hover { border-color: #00D4FF; color: #00A3CC; }
+    .sidebar-add button:hover { background: #eee; }
     .agent-list { display: flex; flex-direction: column; gap: 4px; }
     .agent-tag {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 10px; background: #f8f9fb; border: 1px solid #e2e6ed;
+      padding: 6px 10px; background: #fff; border: 1px solid #d0d0d0;
       border-radius: 8px; font-size: 13px; cursor: grab; user-select: none;
-      transition: all 0.15s;
-      touch-action: none;
+      transition: box-shadow 0.15s, background 0.15s;
+      touch-action: none; /* Prevent browser scroll/zoom during touch drag on Android/iOS */
     }
     .agent-tag:active { cursor: grabbing; }
-    .agent-tag:hover { border-color: #00D4FF; box-shadow: 0 0 0 3px rgba(0,212,255,.08); background: #eef5ff; }
+    .agent-tag:hover { background: #f0f4ff; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
     .agent-tag .remove-agent {
       margin-left: 6px; cursor: pointer; color: #999;
       font-weight: 700; font-size: 14px; line-height: 1;
     }
-    .agent-tag .remove-agent:hover { color: #CC2244; }
+    .agent-tag .remove-agent:hover { color: #c00; }
 
     /* ── Assignment Chips ───────────────────── */
     .assign-cell {
@@ -68,91 +70,98 @@
       transition: background 0.15s;
     }
     .assign-cell.drag-over {
-      background: #E0F7FF; outline: 2px dashed #00D4FF;
+      background: #dbeafe; outline: 2px dashed #1a73e8;
     }
     .assign-chip {
       display: inline-flex; align-items: center; gap: 3px;
-      padding: 2px 8px; background: #E0F7FF; border: 1px solid rgba(0,212,255,.4);
-      border-radius: 999px; font-size: 12px; color: #0088A8;
+      padding: 2px 8px; background: #e8f0fe; border: 1px solid #c4d7f2;
+      border-radius: 999px; font-size: 12px; color: #1a3a6b;
     }
     .assign-chip .chip-x {
       cursor: pointer; font-weight: 700; color: #888;
       font-size: 13px; line-height: 1; margin-left: 2px;
     }
-    .assign-chip .chip-x:hover { color: #CC2244; }
+    .assign-chip .chip-x:hover { color: #c00; }
     .assign-add-btn {
       cursor: pointer; color: #888; font-size: 16px;
       padding: 0 4px; line-height: 1;
     }
-    .assign-add-btn:hover { color: #00D4FF; }
+    .assign-add-btn:hover { color: #1a73e8; }
 
     /* ── Touch Drag Ghost ──────────────────── */
     .touch-drag-ghost {
-      position: fixed; z-index: 9999; pointer-events: none;
+      position: fixed;
+      z-index: 9999;
+      pointer-events: none;
       padding: 6px 14px;
-      background: #E0F7FF; border: 2px solid #00D4FF;
-      border-radius: 8px; font-size: 13px; font-weight: 600; color: #0088A8;
-      box-shadow: 0 4px 16px rgba(0,212,255,.25);
-      white-space: nowrap; transform: translate(-50%, -50%); opacity: 0.92;
+      background: #e8f0fe;
+      border: 2px solid #1a73e8;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a3a6b;
+      box-shadow: 0 4px 16px rgba(0,0,0,.18);
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+      opacity: 0.92;
     }
 
     /* ── Pax Stepper ────────────────────────── */
     .pax-stepper {
       display: inline-flex; align-items: center;
-      border: 1px solid #e2e6ed; border-radius: 8px;
+      border: 1px solid #cfcfcf; border-radius: 8px;
       overflow: hidden; background: #fff;
     }
     .pax-stepper button {
       width: 26px; height: 26px; border: none; border-radius: 0;
-      background: #f8f9fb; font-size: 15px; font-weight: 700;
+      background: #f7f7f7; font-size: 15px; font-weight: 700;
       cursor: pointer; display: flex; align-items: center;
-      justify-content: center; padding: 0; color: #1a1a2e;
+      justify-content: center; padding: 0; color: #333;
     }
-    .pax-stepper button:hover { background: #eef0f4; }
-    .pax-stepper button:first-child { border-right: 1px solid #e2e6ed; }
-    .pax-stepper button:last-child { border-left: 1px solid #e2e6ed; }
+    .pax-stepper button:hover { background: #e8e8e8; }
+    .pax-stepper button:first-child { border-right: 1px solid #e0e0e0; }
+    .pax-stepper button:last-child { border-left: 1px solid #e0e0e0; }
     .pax-stepper .pax-value {
       width: 34px; text-align: center; font-size: 13px; font-weight: 700;
       padding: 0 2px; border: none; outline: none; background: transparent;
-      color: #1a1a2e; -moz-appearance: textfield;
+      -moz-appearance: textfield;
     }
     .pax-stepper .pax-value::-webkit-outer-spin-button,
     .pax-stepper .pax-value::-webkit-inner-spin-button {
       -webkit-appearance: none; margin: 0;
     }
 
-    .main-content { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+    .main-content { flex: 1; min-width: 0; }
 
     /* ── Zone Picker Modal ─────────────────── */
     .zone-picker-overlay {
       position: fixed; inset: 0; z-index: 9000;
-      background: rgba(0,0,0,.5);
+      background: rgba(0,0,0,.55);
       display: flex; align-items: center; justify-content: center;
       backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     }
     .zone-picker-box {
-      background: #fff; border: 1px solid #e2e6ed; border-radius: 16px;
-      padding: 28px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+      background: #fff; border-radius: 16px; padding: 28px 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
       max-width: 420px; width: 90%; text-align: center;
     }
-    .zone-picker-box h2 { margin: 0 0 6px; font-size: 20px; color: #1a1a2e; }
-    .zone-picker-box .sub { font-size: 13px; color: #888; margin-bottom: 20px; }
-    .zone-picker-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .zone-picker-box h2 { margin: 0 0 6px; font-size: 20px; color: #111; }
+    .zone-picker-box .sub { font-size: 13px; color: #666; margin-bottom: 20px; }
+    .zone-picker-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
     .zone-pick-btn {
-      padding: 18px 14px; border-radius: 12px; border: 2px solid #e2e6ed;
-      background: #f8f9fb; font-size: 16px; font-weight: 700; color: #1a1a2e;
+      padding: 18px 14px; border-radius: 12px; border: 2px solid #e1e1e1;
+      background: #fafafa; font-size: 16px; font-weight: 700; color: #333;
       cursor: pointer; transition: all .15s;
     }
-    .zone-pick-btn:hover {
-      border-color: #00D4FF; background: #E0F7FF; color: #0088A8;
-      box-shadow: 0 0 12px rgba(0,212,255,.12);
-    }
+    .zone-pick-btn:hover { border-color: #7C5CFF; background: #f3efff; color: #7C5CFF; }
 
     /* ── View-Only Banner ──────────────────── */
     .view-only-banner {
-      background: #FFF8E1; border: 1px solid #F5A623; border-radius: 8px;
-      padding: 8px 14px; font-size: 13px; color: #B8860B;
-      display: none; flex-shrink: 0;
+      background: #fff3cd; border: 1px solid #e4d39b; border-radius: 8px;
+      padding: 8px 14px; font-size: 13px; color: #856404;
+      margin-top: 6px; display: none;
     }
     .view-only-banner b { font-weight: 700; }
 
@@ -166,30 +175,27 @@
     .work-zone-change {
       padding: 3px 10px; border-radius: 999px; font-size: 11px;
       background: #f3efff; color: #7C5CFF; border: 1px solid #d4c8ff;
-      cursor: pointer; font-weight: 600; transition: all .15s;
+      cursor: pointer; font-weight: 600; transition: background .15s;
     }
     .work-zone-change:hover { background: #e8e0ff; }
 
-    /* ── Filter Layout (two HUD panels) ────── */
+    /* ── Filter Layout (two rows) ──────────── */
     .topbar-primary {
-      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-      padding: 8px 12px; background: #fff;
-      border: 1px solid #e2e6ed; border-radius: 10px;
-      border-left: 3px solid #7C5CFF; flex-shrink: 0;
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 0 4px;
     }
     .topbar-filters {
       display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-      padding: 6px 12px; font-size: 12px; background: #fff;
-      border: 1px solid #e2e6ed; border-radius: 10px;
-      border-left: 3px solid #00D4FF; flex-shrink: 0;
+      padding: 4px 0 6px; font-size: 12px;
     }
-    .filter-group { display: flex; gap: 4px; align-items: center; }
+    .filter-group {
+      display: flex; gap: 4px; align-items: center;
+    }
     .filter-group-label {
-      font-size: 11px; color: #00A3CC; font-weight: 600; text-transform: uppercase;
-      letter-spacing: .06em; margin-right: 2px; white-space: nowrap;
+      font-size: 11px; color: #888; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; margin-right: 2px; white-space: nowrap;
     }
     .topbar-filters .pill { padding: 6px 12px; font-size: 12px; }
-    .topbar-filters label { font-size: 12px; color: #666; }
+    .topbar-filters label { font-size: 12px; color: #555; }
     .topbar-filters input[type="time"] { padding: 4px 6px; font-size: 12px; }
     .topbar-filters select { padding: 4px 8px; font-size: 12px; }
 
@@ -197,7 +203,7 @@
     .pill.work-zone-pill { box-shadow: 0 0 0 2px #7C5CFF; }
 
     /* Read-only row dimming */
-    tr.readonly-row { opacity: 0.5; }
+    tr.readonly-row { opacity: 0.7; }
     tr.readonly-row .assign-cell { pointer-events: none; }
   </style>
 </head>
@@ -244,7 +250,6 @@
     </div>
   </div>
 
-  <div class="page-content">
   <!-- Row 1: Primary (zone nav + search + refresh) -->
   <div class="topbar-primary">
     <span class="work-zone-badge" id="workZoneBadge">Working: —</span>
@@ -329,7 +334,6 @@
       </div>
     </div>
   </div>
-  </div><!-- /page-content -->
 
   <script src="/config.js"></script>
   <script>
