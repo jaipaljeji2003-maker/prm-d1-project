@@ -35,6 +35,12 @@
     })();
   </script>
 
+  <div class="page-content">
+  <div class="page-header">
+    <h1 class="page-title">Dispatch Board</h1>
+    <span class="page-subtitle" id="flightCount"></span>
+  </div>
+
   <div class="topbar">
     <button onclick="manualRefresh()">Refresh</button>
     <button onclick="window.open('/gating-report.html','_blank')">Print Gating Report</button>
@@ -66,6 +72,7 @@
   </div>
 
   <div id="err" class="err"></div>
+  <div class="summary" id="summary"></div>
 
   <div class="tableWrap">
     <table id="tbl">
@@ -80,6 +87,7 @@
       <tbody></tbody>
     </table>
   </div>
+  </div><!-- /page-content -->
 
   <script src="/config.js"></script>
   <script>
@@ -418,6 +426,25 @@
         el.addEventListener("input", onFieldInput);
         el.addEventListener("blur", onFieldBlur);
       });
+
+      renderSummary(filtered);
+    }
+
+    function renderSummary(filtered) {
+      const total = filtered.length;
+      const arr = filtered.filter(r => (r.type||"").toUpperCase() === "ARR").length;
+      const dep = filtered.filter(r => (r.type||"").toUpperCase() === "DEP").length;
+      const alerts = filtered.filter(r => r.gateChanged || r.timeChanged).length;
+      document.getElementById("flightCount").textContent = total + " flights";
+      document.getElementById("summary").innerHTML = `
+        <div class="summaryCard"><div class="summaryTitle">Showing</div><div class="summaryValue">${total}</div><div class="summaryMeta">${arr} ARR &middot; ${dep} DEP</div></div>
+        <div class="summaryCard"><div class="summaryTitle">Alerts</div><div class="summaryValue">${alerts}</div><div class="summaryMeta">Gate &amp; time changes</div></div>
+        <div class="summaryLegend">
+          <span class="legendItem gate">Gate change</span>
+          <span class="legendItem time">Time change</span>
+          <span class="legendItem arr">ARR</span>
+          <span class="legendItem dep">DEP</span>
+        </div>`;
     }
 
     function onFieldInput(e) {
