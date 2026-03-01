@@ -142,6 +142,31 @@ tbody tr:hover { background: #f0f4ff; }
   color: #fff;
 }
 
+/* ── Dashboard viewport layout (sticky table headers) ── */
+html { height: 100%; }
+body.dashboard {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body.dashboard .wings-nav { margin: 0; top: 0; }
+.page-content {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column;
+  padding: 0 12px 12px;
+}
+.page-content > .topbar,
+.page-content > .topbar-primary,
+.page-content > .topbar-filters,
+.page-content > .view-only-banner,
+.page-content > .summary,
+.page-content > #err,
+.page-content > #loading { flex-shrink: 0; }
+.page-content > .tableWrap { flex: 1; }
+.page-content > .page-layout { flex: 1; overflow: hidden; }
+
 @media (max-width: 900px) {
   th, td { padding: 6px; }
   .wings-nav { padding: 0 10px; gap: 0; }

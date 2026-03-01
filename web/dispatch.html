@@ -6,7 +6,7 @@
   <title>WINGS Dispatch</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
-<body>
+<body class="dashboard">
   <nav class="wings-nav" id="wingsNav">
     <a href="/" class="wings-nav-brand">
       <svg viewBox="0 0 64 64" fill="none"><defs><linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7C5CFF"/><stop offset="100%" stop-color="#00D4FF"/></linearGradient></defs><path d="M8 40C12 28 24 16 56 10C48 18 38 28 34 38C38 30 44 22 56 10C36 20 22 32 14 44L8 40Z" fill="url(#wg)" opacity=".9"/><path d="M12 46C16 36 26 26 52 20C44 28 36 36 32 44C36 38 42 30 52 20C34 30 24 40 18 50L12 46Z" fill="url(#wg)" opacity=".55"/><circle cx="32" cy="52" r="3.5" fill="url(#wg)" opacity=".7"/></svg>
@@ -35,6 +35,7 @@
     })();
   </script>
 
+  <div class="page-content">
   <div class="topbar">
     <button onclick="manualRefresh()">Refresh</button>
     <button onclick="window.open('/gating-report.html','_blank')">Print Gating Report</button>
@@ -80,6 +81,8 @@
       <tbody></tbody>
     </table>
   </div>
+
+  </div><!-- /page-content -->
 
   <script src="/config.js"></script>
   <script>

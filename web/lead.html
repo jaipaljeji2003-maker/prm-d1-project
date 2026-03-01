@@ -15,10 +15,6 @@
       padding: 10px;
       border-radius: 10px 0 0 10px;
       display: flex; flex-direction: column;
-      position: sticky;
-      top: 58px;
-      align-self: flex-start;
-      max-height: calc(100vh - 70px);
       overflow-y: auto;
     }
     .agent-sidebar.collapsed { width: 36px; min-width: 36px; padding: 10px 4px; }
@@ -131,7 +127,8 @@
       -webkit-appearance: none; margin: 0;
     }
 
-    .main-content { flex: 1; min-width: 0; }
+    .main-content { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+    .main-content > .tableWrap { flex: 1; }
 
     /* ── Zone Picker Modal ─────────────────── */
     .zone-picker-overlay {
@@ -207,7 +204,7 @@
     tr.readonly-row .assign-cell { pointer-events: none; }
   </style>
 </head>
-<body>
+<body class="dashboard">
   <nav class="wings-nav" id="wingsNav">
     <a href="/" class="wings-nav-brand">
       <svg viewBox="0 0 64 64" fill="none"><defs><linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7C5CFF"/><stop offset="100%" stop-color="#00D4FF"/></linearGradient></defs><path d="M8 40C12 28 24 16 56 10C48 18 38 28 34 38C38 30 44 22 56 10C36 20 22 32 14 44L8 40Z" fill="url(#wg)" opacity=".9"/><path d="M12 46C16 36 26 26 52 20C44 28 36 36 32 44C36 38 42 30 52 20C34 30 24 40 18 50L12 46Z" fill="url(#wg)" opacity=".55"/><circle cx="32" cy="52" r="3.5" fill="url(#wg)" opacity=".7"/></svg>
@@ -236,6 +233,7 @@
     })();
   </script>
 
+  <div class="page-content">
   <!-- Zone Picker Modal -->
   <div class="zone-picker-overlay" id="zonePicker" style="display:none;">
     <div class="zone-picker-box">
@@ -334,6 +332,8 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /page-content -->
 
   <script src="/config.js"></script>
   <script>
