@@ -4,357 +4,247 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WINGS Login</title>
-  <link rel="stylesheet" href="/style.css" />
 
-  <!-- Login-page-only theme (won't affect other pages) -->
   <style>
     :root{
-      --bg0:#070A12;
-      --bg1:#0B1022;
-      --card:#0F1630cc;
-      --border:#1D2A55;
-      --text:#EAF0FF;
-      --muted:#AAB7E6;
-      --muted2:#7F8CC3;
-      --accent:#7C5CFF;
-      --accent2:#00D4FF;
-      --danger:#FF4D6D;
-      --ok:#2DE2A6;
-      --radius:22px;
-      --radius2:14px;
-      --shadow: 0 24px 64px rgba(0,0,0,.6);
-      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --bg0:#070A12; --bg1:#0B1022; --card:#0F1630cc; --border:#1D2A55;
+      --text:#EAF0FF; --muted:#AAB7E6; --muted2:#7F8CC3;
+      --accent:#7C5CFF; --accent2:#00D4FF; --danger:#FF4D6D; --ok:#2DE2A6;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
-
-    *{ box-sizing: border-box; }
+    *{ box-sizing: border-box; margin: 0; padding: 0; }
 
     body{
-      margin:0;
-      min-height:100vh;
-      font-family: var(--font);
-      color: var(--text);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 22px;
-      overflow-y: auto;
-      background:
-        radial-gradient(1200px 700px at 15% 15%, rgba(124,92,255,.22), transparent 60%),
-        radial-gradient(900px 600px at 85% 25%, rgba(0,212,255,.16), transparent 55%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
+      min-height:100vh; font-family:var(--font); color:var(--text);
+      display:flex; align-items:center; justify-content:center;
+      padding:22px; overflow-y:auto;
+      background: linear-gradient(180deg, var(--bg0), var(--bg1));
     }
 
-    /* ── Animated background blobs ──────────── */
-    body::before, body::after {
-      content: "";
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(100px);
-      opacity: .35;
-      pointer-events: none;
-      z-index: 0;
+    /* ── Animated Background ─────────────────── */
+    .bg-layer{ position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+
+    /* HUD Grid Pattern */
+    .bg-grid{
+      position:absolute; inset:0;
+      background-image:
+        linear-gradient(rgba(0,212,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,.04) 1px, transparent 1px);
+      background-size: 60px 60px;
     }
-    body::before {
-      width: 600px; height: 600px;
-      top: -200px; left: -100px;
-      background: var(--accent);
-      animation: blobFloat 18s ease-in-out infinite alternate;
+
+    /* Radar Sweep */
+    .radar{
+      position:absolute; width:320px; height:320px;
+      top:10%; left:8%; opacity:.25;
     }
-    body::after {
-      width: 500px; height: 500px;
-      bottom: -150px; right: -80px;
-      background: var(--accent2);
-      animation: blobFloat 22s ease-in-out infinite alternate-reverse;
+    .radar-ring{
+      position:absolute; inset:0; border-radius:50%;
+      border:1px solid rgba(0,212,255,.2);
     }
-    @keyframes blobFloat {
-      0%   { transform: translate(0, 0) scale(1); }
-      50%  { transform: translate(60px, 40px) scale(1.1); }
-      100% { transform: translate(-30px, 80px) scale(0.95); }
+    .radar-ring:nth-child(2){ inset:25%; }
+    .radar-ring:nth-child(3){ inset:50%; }
+    .radar-dot{
+      position:absolute; width:6px; height:6px; border-radius:50%;
+      background:#00D4FF; top:30%; left:65%; box-shadow:0 0 8px #00D4FF;
+      animation: radarBlink 3s ease-in-out infinite;
     }
+    .radar-sweep{
+      position:absolute; inset:0; border-radius:50%;
+      background:conic-gradient(from 0deg, transparent 0deg, rgba(0,212,255,.15) 40deg, transparent 80deg);
+      animation: radarSpin 4s linear infinite;
+    }
+    @keyframes radarSpin { to { transform:rotate(360deg); } }
+    @keyframes radarBlink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+    /* Flying Planes */
+    .plane{
+      position:absolute; font-size:20px; opacity:.12; color:#00D4FF;
+      filter:drop-shadow(0 0 6px rgba(0,212,255,.3));
+    }
+    .plane-1{ top:15%; animation:flyAcross 18s linear infinite; animation-delay:-3s; font-size:24px; opacity:.15; }
+    .plane-2{ top:45%; animation:flyAcross 25s linear infinite; animation-delay:-10s; font-size:16px; opacity:.08; }
+    .plane-3{ top:75%; animation:flyAcross 22s linear infinite; animation-delay:-6s; font-size:20px; opacity:.1; }
+    @keyframes flyAcross {
+      from { transform:translateX(-60px) rotate(-8deg); }
+      to   { transform:translateX(calc(100vw + 60px)) rotate(-8deg); }
+    }
+
+    /* Runway Lights */
+    .runway{
+      position:absolute; bottom:30px; left:50%; transform:translateX(-50%);
+      display:flex; gap:40px;
+    }
+    .runway-dot{
+      width:4px; height:4px; border-radius:50%; background:#F5A623;
+      opacity:.15; animation:runwayBlink 2s ease-in-out infinite;
+    }
+    .runway-dot:nth-child(2){ animation-delay:.25s; }
+    .runway-dot:nth-child(3){ animation-delay:.5s; }
+    .runway-dot:nth-child(4){ animation-delay:.75s; }
+    .runway-dot:nth-child(5){ animation-delay:1s; }
+    .runway-dot:nth-child(6){ animation-delay:1.25s; }
+    .runway-dot:nth-child(7){ animation-delay:1.5s; }
+    .runway-dot:nth-child(8){ animation-delay:1.75s; }
+    @keyframes runwayBlink { 0%,100%{opacity:.15} 50%{opacity:.6} }
 
     /* ── Card ───────────────────────────────── */
     .card{
-      width: min(520px, 100%);
-      background: linear-gradient(170deg, rgba(15,22,48,.85), rgba(15,22,48,.55));
-      border:1px solid rgba(29,42,85,.7);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 28px 26px 22px;
-      position: relative;
-      overflow:hidden;
-      z-index: 1;
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
+      width:min(480px, 100%); position:relative; z-index:1;
+      background:linear-gradient(170deg,rgba(15,22,48,.88),rgba(15,22,48,.6));
+      border:1px solid rgba(29,42,85,.7); border-radius:22px;
+      box-shadow:0 24px 64px rgba(0,0,0,.6);
+      padding:28px 26px 22px;
+      backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
     }
     .card::before{
-      content:"";
-      position:absolute;
-      inset:-2px;
-      background:
-        radial-gradient(500px 250px at 20% 0%, rgba(124,92,255,.15), transparent 50%),
-        radial-gradient(500px 250px at 80% 20%, rgba(0,212,255,.10), transparent 45%);
-      pointer-events:none;
-      filter: blur(1px);
+      content:""; position:absolute; inset:-1px; border-radius:22px;
+      background:linear-gradient(135deg,rgba(0,212,255,.1),transparent 50%,rgba(124,92,255,.08));
+      pointer-events:none; z-index:-1;
     }
-    .card:hover::before{
-      animation: cardGlow 3s ease-in-out infinite alternate;
-    }
-    @keyframes cardGlow {
-      0%   { opacity:.8; }
-      100% { opacity:1; }
-    }
+    .content{ display:flex; flex-direction:column; gap:16px; }
 
-    .content{ position:relative; display:flex; flex-direction:column; gap: 16px; }
+    /* ── Brand ──────────────────────────────── */
+    .brand{ display:flex; align-items:center; gap:14px; padding-bottom:14px; border-bottom:1px solid rgba(29,42,85,.45); }
+    .logo-wrap{ width:52px; height:52px; flex-shrink:0; }
+    .logo-wrap svg{ width:52px; height:52px; filter:drop-shadow(0 4px 16px rgba(124,92,255,.3)); }
+    .brand h1{
+      font-size:28px; font-weight:800; letter-spacing:3px; line-height:1; margin:0;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .brand-sub{ font-size:11px; color:var(--muted); letter-spacing:.5px; margin-top:3px; }
 
-    /* ── Brand / Logo ──────────────────────── */
-    .brand{
-      display:flex; align-items:center; gap:16px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid rgba(29,42,85,.45);
-    }
-    .logo-wrap{
-      position: relative;
-      width: 56px; height: 56px;
-      flex: 0 0 auto;
-    }
-    .logo-wrap svg{
-      width: 56px; height: 56px;
-      filter: drop-shadow(0 6px 20px rgba(124,92,255,.35));
-    }
-    .brand-text h1{
-      margin: 0;
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: 3px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      line-height: 1;
-    }
-    .brand-sub{
-      font-size: 11.5px;
-      color: var(--muted);
-      letter-spacing: .5px;
-      margin-top: 4px;
-    }
-
-    /* ── Acronym breakdown ─────────────────── */
+    /* ── Acronym ────────────────────────────── */
     .acronym{
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      padding: 12px 14px;
-      border-radius: var(--radius2);
-      background: rgba(7,10,18,.35);
-      border: 1px solid rgba(29,42,85,.5);
+      display:flex; flex-direction:column; gap:3px;
+      padding:10px 14px; border-radius:14px;
+      background:rgba(7,10,18,.35); border:1px solid rgba(29,42,85,.5);
     }
     .acronym-line{
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      opacity: 0;
-      animation: fadeSlide .5s ease forwards;
+      display:flex; align-items:center; gap:8px; font-size:13px;
+      opacity:0; animation:fadeSlide .5s ease forwards;
     }
-    .acronym-line:nth-child(1){ animation-delay: .15s; }
-    .acronym-line:nth-child(2){ animation-delay: .3s; }
-    .acronym-line:nth-child(3){ animation-delay: .45s; }
-    .acronym-line:nth-child(4){ animation-delay: .6s; }
-    .acronym-line:nth-child(5){ animation-delay: .75s; }
-    @keyframes fadeSlide {
-      from { opacity: 0; transform: translateX(-10px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
+    .acronym-line:nth-child(1){animation-delay:.15s}
+    .acronym-line:nth-child(2){animation-delay:.3s}
+    .acronym-line:nth-child(3){animation-delay:.45s}
+    .acronym-line:nth-child(4){animation-delay:.6s}
+    .acronym-line:nth-child(5){animation-delay:.75s}
+    @keyframes fadeSlide { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
     .acronym-letter{
-      font-weight: 800;
-      font-size: 16px;
-      width: 22px;
-      text-align: center;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      font-weight:800; font-size:16px; width:22px; text-align:center;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
     }
-    .acronym-word{
-      color: var(--muted);
-      font-weight: 500;
-    }
+    .acronym-word{ color:var(--muted); font-weight:500; }
     .acronym-loc{
-      text-align: center;
-      font-size: 11px;
-      color: var(--muted2);
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      margin-top: 4px;
-      padding-top: 6px;
-      border-top: 1px solid rgba(29,42,85,.35);
+      text-align:center; font-size:11px; color:var(--muted2);
+      letter-spacing:2px; text-transform:uppercase;
+      margin-top:4px; padding-top:6px; border-top:1px solid rgba(29,42,85,.35);
     }
 
-    /* ── Quote card ─────────────────────────── */
-    .quoteCard{
-      padding: 10px 12px 8px;
-      border-radius: var(--radius2);
-      background: rgba(7,10,18,.25);
-      border:1px solid rgba(29,42,85,.5);
-      display:flex;
-      flex-direction:column;
-      gap: 6px;
-    }
-    .quoteTop{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .chip{
-      font-size: 11px;
-      color: var(--muted);
-      padding: 4px 10px;
-      border:1px solid rgba(29,42,85,.85);
-      border-radius: 999px;
-      background: rgba(7,10,18,.25);
-      user-select:none;
-    }
-    .date{ font-size: 11px; color: var(--muted2); }
-    .quote{
-      font-size: 14px;
-      line-height: 1.4;
-      color: var(--muted);
-    }
-    .quote small{
-      display:block;
-      margin-top: 4px;
-      color: var(--muted2);
-      font-size: 11px;
-    }
-
-    /* ── Form fields ───────────────────────── */
-    .form-section{
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    /* ── Form ───────────────────────────────── */
+    .form-section{ display:flex; flex-direction:column; gap:12px; }
     .field{ display:flex; flex-direction:column; gap:6px; }
-    label{ font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .3px; }
-
+    label{ font-size:12px; color:var(--muted); font-weight:600; letter-spacing:.3px; }
     input{
-      width:100%;
-      padding: 13px 14px;
-      border-radius: var(--radius2);
-      border: 1px solid rgba(29,42,85,.8);
-      background: rgba(7,10,18,.35);
-      color: var(--text);
-      font-size: 14px;
-      outline:none;
-      transition: border-color .2s, box-shadow .2s;
+      width:100%; padding:12px 14px; border-radius:14px;
+      border:1px solid rgba(29,42,85,.8); background:rgba(7,10,18,.35);
+      color:var(--text); font-size:14px; font-family:var(--font);
+      outline:none; transition:border-color .2s, box-shadow .2s;
     }
-    input:focus{
-      border-color: rgba(124,92,255,.8);
-      box-shadow: 0 0 0 4px rgba(124,92,255,.15);
-    }
-    input::placeholder{ color: var(--muted2); opacity: .6; }
-
+    input:focus{ border-color:rgba(0,212,255,.6); box-shadow:0 0 0 4px rgba(0,212,255,.12); }
+    input::placeholder{ color:var(--muted2); opacity:.6; }
     .pwWrap{ position:relative; }
     .togglePw{
-      position:absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 11px;
-      color: var(--muted);
-      padding: 5px 10px;
-      border-radius: 999px;
-      border:1px solid rgba(29,42,85,.85);
-      background: rgba(7,10,18,.3);
-      cursor:pointer;
-      user-select:none;
-      transition: background .2s;
+      position:absolute; right:10px; top:50%; transform:translateY(-50%);
+      font-size:11px; color:var(--muted); padding:5px 10px; border-radius:999px;
+      border:1px solid rgba(29,42,85,.85); background:rgba(7,10,18,.3);
+      cursor:pointer; user-select:none; transition:background .2s;
     }
-    .togglePw:hover{ background: rgba(29,42,85,.5); }
+    .togglePw:hover{ background:rgba(29,42,85,.5); }
 
-    /* ── Buttons ────────────────────────────── */
-    .btn-row{
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 4px;
-    }
-    button{
-      padding: 12px 14px;
-      border-radius: var(--radius2);
-      border: 1px solid rgba(255,255,255,.08);
-      background: rgba(14,20,44,.5);
-      color: var(--text);
-      cursor:pointer;
-      font-weight: 600;
-      font-size: 13px;
-      transition: background .2s, transform .1s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-    button:hover{ background: rgba(29,42,85,.5); transform: translateY(-1px); }
-    button:active{ transform: translateY(0); }
-
+    /* ── Login Button ──────────────────────── */
     #btn{
-      grid-column: 1 / -1;
-      padding: 14px;
-      font-size: 15px;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #081022;
-      border: 1px solid rgba(255,255,255,.15);
-      letter-spacing: .5px;
+      width:100%; padding:14px; border-radius:14px; border:none;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#081022; font-weight:700; font-size:15px; cursor:pointer;
+      letter-spacing:.5px; transition:filter .15s, transform .1s;
     }
-    #btn:hover{ filter: brightness(1.08); }
+    #btn:hover{ filter:brightness(1.08); transform:translateY(-1px); }
+    #btn:active{ transform:translateY(0); }
     #btn:disabled{ opacity:.6; cursor:not-allowed; filter:saturate(.5); transform:none; }
 
-    .btn-icon{ font-size: 15px; }
-
-    /* ── Status ─────────────────────────────── */
-    .hint{ color: var(--muted2); font-size: 11px; line-height: 1.45; text-align:center; }
-    .err{ color: #FFD0D9; background: rgba(255,77,109,.08); border:1px solid rgba(255,77,109,.3); padding: 10px 12px; border-radius: var(--radius2); font-size: 13px; }
-    .ok{ color: #BFFBE8; background: rgba(45,226,166,.08); border:1px solid rgba(45,226,166,.25); padding: 10px 12px; border-radius: var(--radius2); font-size: 13px; }
-    .msg-info{ color: var(--muted2); font-size: 12px; text-align:center; }
-
-    #msg:empty, #err:empty, #ok:empty { display:none; }
-
-    /* ── Motto ──────────────────────────────── */
-    .motto{
-      text-align:center;
-      font-size: 11.5px;
-      color: var(--muted2);
-      letter-spacing: .3px;
-      padding-top: 4px;
+    /* ── HUD Navigation Cards (post-login) ── */
+    .nav-cards{
+      display:grid; grid-template-columns:1fr 1fr; gap:10px;
     }
+    .nav-card{
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+      padding:18px 10px; border-radius:14px; cursor:pointer;
+      border:1px solid rgba(29,42,85,.7); background:rgba(7,10,18,.4);
+      transition:all .2s; text-decoration:none; color:var(--text);
+    }
+    .nav-card:hover{
+      border-color:rgba(0,212,255,.5); background:rgba(0,212,255,.06);
+      box-shadow:0 0 16px rgba(0,212,255,.12); transform:translateY(-2px);
+    }
+    .nav-card-icon{ font-size:28px; line-height:1; }
+    .nav-card-title{ font-size:14px; font-weight:700; letter-spacing:.3px; }
+    .nav-card-sub{ font-size:11px; color:var(--muted2); }
+
+    /* ── Status Messages ───────────────────── */
+    .err{ color:#FFD0D9; background:rgba(255,77,109,.08); border:1px solid rgba(255,77,109,.3); padding:10px 12px; border-radius:14px; font-size:13px; }
+    .ok{ color:#BFFBE8; background:rgba(45,226,166,.08); border:1px solid rgba(45,226,166,.25); padding:10px 12px; border-radius:14px; font-size:13px; }
+    .msg-info{ color:var(--muted2); font-size:12px; text-align:center; }
+    #msg:empty,#err:empty,#ok:empty{ display:none; }
+
+    .motto{ text-align:center; font-size:11px; color:var(--muted2); letter-spacing:.3px; padding-top:4px; }
   </style>
 </head>
 
 <body>
+  <!-- Animated Background -->
+  <div class="bg-layer">
+    <div class="bg-grid"></div>
+    <div class="radar">
+      <div class="radar-ring"></div>
+      <div class="radar-ring"></div>
+      <div class="radar-ring"></div>
+      <div class="radar-sweep"></div>
+      <div class="radar-dot"></div>
+    </div>
+    <div class="plane plane-1">&#9992;</div>
+    <div class="plane plane-2">&#9992;</div>
+    <div class="plane plane-3">&#9992;</div>
+    <div class="runway">
+      <div class="runway-dot"></div><div class="runway-dot"></div>
+      <div class="runway-dot"></div><div class="runway-dot"></div>
+      <div class="runway-dot"></div><div class="runway-dot"></div>
+      <div class="runway-dot"></div><div class="runway-dot"></div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="content">
 
-      <!-- Brand Header -->
+      <!-- Brand -->
       <div class="brand">
         <div class="logo-wrap">
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#7C5CFF"/>
-                <stop offset="100%" stop-color="#00D4FF"/>
-              </linearGradient>
-            </defs>
-            <!-- Stylized wing shape -->
-            <path d="M8 40 C12 28, 24 16, 56 10 C48 18, 38 28, 34 38 C38 30, 44 22, 56 10 C36 20, 22 32, 14 44 L8 40Z" fill="url(#wg)" opacity="0.9"/>
-            <path d="M12 46 C16 36, 26 26, 52 20 C44 28, 36 36, 32 44 C36 38, 42 30, 52 20 C34 30, 24 40, 18 50 L12 46Z" fill="url(#wg)" opacity="0.55"/>
-            <!-- Small circle accent -->
-            <circle cx="32" cy="52" r="3.5" fill="url(#wg)" opacity="0.7"/>
+          <svg viewBox="0 0 64 64" fill="none">
+            <defs><linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7C5CFF"/><stop offset="100%" stop-color="#00D4FF"/></linearGradient></defs>
+            <path d="M8 40C12 28 24 16 56 10C48 18 38 28 34 38C38 30 44 22 56 10C36 20 22 32 14 44L8 40Z" fill="url(#wg)" opacity=".9"/>
+            <path d="M12 46C16 36 26 26 52 20C44 28 36 36 32 44C36 38 42 30 52 20C34 30 24 40 18 50L12 46Z" fill="url(#wg)" opacity=".55"/>
+            <circle cx="32" cy="52" r="3.5" fill="url(#wg)" opacity=".7"/>
           </svg>
         </div>
-        <div class="brand-text">
+        <div>
           <h1>WINGS</h1>
           <div class="brand-sub">Operations Portal</div>
         </div>
       </div>
 
-      <!-- Acronym Breakdown -->
+      <!-- Acronym -->
       <div class="acronym">
         <div class="acronym-line"><span class="acronym-letter">W</span><span class="acronym-word">Wheelchair</span></div>
         <div class="acronym-line"><span class="acronym-letter">I</span><span class="acronym-word">Inclusive</span></div>
@@ -364,22 +254,12 @@
         <div class="acronym-loc">Toronto Pearson &mdash; YYZ</div>
       </div>
 
-      <!-- Quote of the Day -->
-      <div class="quoteCard" aria-label="Quote of the day">
-        <div class="quoteTop">
-          <div class="chip">Quote of the day</div>
-          <div class="date" id="todayToronto">&mdash;</div>
-        </div>
-        <div class="quote" id="quoteText">&mdash;</div>
-      </div>
-
       <!-- Login Form -->
-      <div class="form-section">
+      <div class="form-section" id="loginForm">
         <div class="field">
           <label for="u">Username</label>
           <input id="u" placeholder="Enter your username" autocomplete="username" />
         </div>
-
         <div class="field">
           <label for="p">PIN</label>
           <div class="pwWrap">
@@ -387,15 +267,31 @@
             <div class="togglePw" id="togglePw" role="button" tabindex="0" aria-label="Show PIN">Show</div>
           </div>
         </div>
+        <button id="btn" onclick="login()">Login</button>
       </div>
 
-      <!-- Buttons -->
-      <div class="btn-row" id="btnRow">
-        <button id="btn" onclick="login()">Login</button>
-        <button id="btnDispatch" onclick="go('dispatch')" style="display:none"><span class="btn-icon">&#9783;</span> Dispatch</button>
-        <button id="btnLead" onclick="go('lead')" style="display:none"><span class="btn-icon">&#9873;</span> Lead</button>
-        <button id="btnMgmt" onclick="go('mgmt')" style="display:none"><span class="btn-icon">&#9881;</span> Pre-Alerts</button>
-        <button id="btnArchive" onclick="go('archive')" style="display:none"><span class="btn-icon">&#9776;</span> Archive</button>
+      <!-- HUD Nav Cards (shown after login) -->
+      <div class="nav-cards" id="navCards" style="display:none;">
+        <a class="nav-card" id="btnDispatch" href="/dispatch.html" style="display:none">
+          <span class="nav-card-icon">&#9992;</span>
+          <span class="nav-card-title">Dispatch</span>
+          <span class="nav-card-sub">Flight Operations</span>
+        </a>
+        <a class="nav-card" id="btnLead" href="/lead.html" style="display:none">
+          <span class="nav-card-icon">&#9873;</span>
+          <span class="nav-card-title">Lead</span>
+          <span class="nav-card-sub">Zone Management</span>
+        </a>
+        <a class="nav-card" id="btnMgmt" href="/prealert.html" style="display:none">
+          <span class="nav-card-icon">&#9881;</span>
+          <span class="nav-card-title">Pre-Alerts</span>
+          <span class="nav-card-sub">Analytics Dashboard</span>
+        </a>
+        <a class="nav-card" id="btnArchive" href="/archive.html" style="display:none">
+          <span class="nav-card-icon">&#9776;</span>
+          <span class="nav-card-title">Archive</span>
+          <span class="nav-card-sub">Flight History</span>
+        </a>
       </div>
 
       <div id="msg" class="msg-info"></div>
@@ -415,13 +311,11 @@
     function setErr(s){ document.getElementById('err').textContent = s || ''; }
     function setOk(s){ document.getElementById('ok').textContent = s || ''; }
     function setMsg(s){ document.getElementById('msg').textContent = s || ''; }
-
     function getToken(){ return localStorage.getItem(LS_TOKEN) || ""; }
 
     function applyAccess(access){
       if (!access) return access;
       localStorage.setItem("PRM_ACCESS", JSON.stringify(access));
-      // Show/hide nav buttons based on role
       const d = document.getElementById("btnDispatch");
       const l = document.getElementById("btnLead");
       const m = document.getElementById("btnMgmt");
@@ -433,53 +327,10 @@
       return access;
     }
 
-    function go(app){
-      const t = getToken();
-      if (!t) { setErr("Login first."); return; }
-      let page = "/lead.html";
-      if (app === "dispatch") page = "/dispatch.html";
-      if (app === "mgmt") page = "/prealert.html";
-      if (app === "archive") page = "/archive.html";
-      window.location.href = page;
+    function showNavCards(){
+      document.getElementById("loginForm").style.display = "none";
+      document.getElementById("navCards").style.display = "";
     }
-
-    // --- Quote of the day (Toronto, deterministic) ---
-    const QUOTES = [
-  { t: "The problem with internet quotes is that they are difficult to verify.", a: "Abraham Lincoln (PS given by Steve Dawson)" }
-];
-
-
-    function torontoYMD() {
-      const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Toronto",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      }).formatToParts(new Date());
-      const y = parts.find(p => p.type === "year").value;
-      const m = parts.find(p => p.type === "month").value;
-      const d = parts.find(p => p.type === "day").value;
-      return `${y}-${m}-${d}`;
-    }
-    function hashStringToInt(str) {
-      let h = 0;
-      for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-      return h;
-    }
-    (function setQuoteOfDay(){
-  const ymd = torontoYMD();
-  document.getElementById("todayToronto").textContent = `${ymd} (Toronto)`;
-
-  const idx = hashStringToInt(ymd) % QUOTES.length;
-
-  const el = document.getElementById("quoteText");
-  el.textContent = `"${QUOTES[idx].t}"`;
-
-  const s = document.createElement("small");
-  s.textContent = `— ${QUOTES[idx].a}`;
-  el.appendChild(s);
-})();
-
 
     // Show/hide PIN
     const pinEl = document.getElementById("p");
@@ -488,14 +339,11 @@
       const isHidden = pinEl.type === "password";
       pinEl.type = isHidden ? "text" : "password";
       toggle.textContent = isHidden ? "Hide" : "Show";
-      toggle.setAttribute("aria-label", isHidden ? "Hide PIN" : "Show PIN");
     }
     toggle.addEventListener("click", togglePin);
-    toggle.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") togglePin();
-    });
+    toggle.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") togglePin(); });
 
-    // Enter key triggers login
+    // Enter key
     document.getElementById("u").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
     document.getElementById("p").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
 
@@ -522,15 +370,17 @@
         localStorage.setItem(LS_USER, JSON.stringify(data.user || {}));
         applyAccess(data.access);
 
-        if (data.access && data.access.dispatch && !data.access.lead) {
-          window.location.href = "/dispatch.html";
-          return;
+        // Single-role users auto-redirect
+        if (data.access && data.access.dispatch && !data.access.lead && !data.access.mgmt) {
+          window.location.href = "/dispatch.html"; return;
         }
-        if (data.access && data.access.lead && !data.access.dispatch) {
-          window.location.href = "/lead.html";
-          return;
+        if (data.access && data.access.lead && !data.access.dispatch && !data.access.mgmt) {
+          window.location.href = "/lead.html"; return;
         }
-        setOk("Logged in. Choose Dispatch, Lead, or Pre-Alerts.");
+
+        // Multi-role: show nav cards
+        setOk("Logged in. Choose your destination.");
+        showNavCards();
       } catch (e) {
         document.getElementById('btn').disabled = false;
         setMsg('');
@@ -538,7 +388,7 @@
       }
     }
 
-    // If token exists, validate it (no auto-redirect)
+    // Boot: check existing session
     (async function boot(){
       const t = getToken();
       if (!t) return;
@@ -548,10 +398,10 @@
         });
         const data = await res.json();
         if (data && data.ok) {
-          setOk("Session active. Choose Dispatch, Lead, or Pre-Alerts.");
+          setOk("Session active. Choose your destination.");
           applyAccess(data.access);
-        }
-        else {
+          showNavCards();
+        } else {
           localStorage.removeItem(LS_TOKEN);
           localStorage.removeItem(LS_USER);
         }
