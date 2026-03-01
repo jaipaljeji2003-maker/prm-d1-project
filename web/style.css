@@ -153,7 +153,7 @@ body.dashboard {
 }
 body.dashboard .wings-nav { margin: 0; top: 0; }
 .page-content {
-  flex: 1; overflow: hidden;
+  flex: 1; min-height: 0; overflow: hidden;
   display: flex; flex-direction: column;
   padding: 0 12px 12px;
 }
@@ -164,8 +164,8 @@ body.dashboard .wings-nav { margin: 0; top: 0; }
 .page-content > .summary,
 .page-content > #err,
 .page-content > #loading { flex-shrink: 0; }
-.page-content > .tableWrap { flex: 1; }
-.page-content > .page-layout { flex: 1; overflow: hidden; }
+.page-content > .tableWrap { flex: 1; min-height: 0; }
+.page-content > .page-layout { flex: 1; min-height: 0; overflow: hidden; }
 
 @media (max-width: 900px) {
   th, td { padding: 6px; }
